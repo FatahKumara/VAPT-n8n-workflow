@@ -1,0 +1,223 @@
+{
+  "name": "VAPT_BOT_C_Dispatcher",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message", "callback_query"],
+        "additionalFields": {}
+      },
+      "id": "l2000001-0000-0000-0000-000000000001",
+      "name": "Telegram Trigger Bot C",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0],
+      "webhookId": "vapt-bot-c-webhook-001",
+      "credentials": {
+        "telegramApi": { "id": "{{ TELEGRAM_BOT_C_CRED }}", "name": "Telegram Bot C - Pentester Group" }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst message = body.message;\nconst cbq = body.callback_query;\n\nlet chatId, userId, text, callbackData, firstName, chatType;\n\nif (cbq) {\n  chatId = String(cbq.message.chat.id);\n  userId = String(cbq.from.id);\n  text = null;\n  callbackData = cbq.data;\n  firstName = cbq.from.first_name || '';\n  chatType = cbq.message.chat.type;\n} else if (message) {\n  chatId = String(message.chat.id);\n  userId = String(message.from.id);\n  text = message.text || '';\n  callbackData = null;\n  firstName = message.from.first_name || '';\n  chatType = message.chat.type;\n} else {\n  return [];\n}\n\nconst command = text && text.startsWith('/') ? text.split(' ')[0].split('@')[0].toLowerCase() : null;\nconst allowedChatId = String($vars.PENTESTER_GROUP_CHAT_ID);\nconst isAllowedGroup = chatId === allowedChatId;\n\nreturn [{ json: { chatId, userId, text, callbackData, firstName, chatType, command, isAllowedGroup } }];"
+      },
+      "id": "l2000001-0000-0000-0000-000000000002",
+      "name": "Parse Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.isAllowedGroup }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ]
+        }
+      },
+      "id": "l2000001-0000-0000-0000-000000000003",
+      "name": "Is Allowed Group?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [500, 0]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "key": "=vapt:session:{{ $json.userId }}"
+      },
+      "id": "l2000001-0000-0000-0000-000000000004",
+      "name": "Get User Session",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [750, -150],
+      "credentials": { "redis": { "id": "{{ REDIS_CRED }}", "name": "Redis VAPT" } },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const incoming = $('Parse Message').first().json;\nconst sessionRaw = $input.first().json.value || null;\nlet session = null;\ntry { session = sessionRaw ? JSON.parse(sessionRaw) : null; } catch(e) {}\n\nconst command = incoming.command;\nconst callbackData = incoming.callbackData;\nconst sessionStep = session?.step;\nconst sessionCommand = session?.command;\n\nlet route;\nif (callbackData) {\n  if (callbackData.startsWith('act:')) route = 'c3_session';\n  else if (callbackData.startsWith('vuln:')) route = 'c4_session';\n  else route = 'unknown_callback';\n} else if (command === '/summary') {\n  route = 'c1_summary';\n} else if (command === '/update_activity') {\n  route = 'c3_init';\n} else if (command === '/add_vuln') {\n  route = 'c4_init';\n} else if (command === '/help' || command === '/start') {\n  route = 'help';\n} else if (sessionStep && sessionCommand === '/update_activity') {\n  route = 'c3_session';\n} else if (sessionStep && sessionCommand === '/add_vuln') {\n  route = 'c4_session';\n} else {\n  route = 'unknown';\n}\n\nreturn [{ json: { ...incoming, session, route } }];"
+      },
+      "id": "l2000001-0000-0000-0000-000000000005",
+      "name": "Resolve Session & Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, -150]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "c1_summary", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "summary" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "c3_init", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "c3_init" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "c3_session", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "c3_session" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "c4_init", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "c4_init" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "c4_session", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "c4_session" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "help", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "help" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "l2000001-0000-0000-0000-000000000006",
+      "name": "Route by Command",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1250, -150]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_SHARED_SUMMARY }}",
+        "fields": {
+          "values": [
+            { "name": "target_chat_id", "stringValue": "={{ $json.chatId }}" },
+            { "name": "summary_mode", "stringValue": "pentester_ondemand" }
+          ]
+        },
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "l2000001-0000-0000-0000-000000000007",
+      "name": "Call C1 Summary",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1500, -450]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_C3_DAILY_ACTIVITY }}",
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "l2000001-0000-0000-0000-000000000008",
+      "name": "Call C3 Init Activity",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1500, -300]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_C3_DAILY_ACTIVITY }}",
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "l2000001-0000-0000-0000-000000000009",
+      "name": "Call C3 Session Handler",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1500, -150]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_C4_VULN_UPDATE }}",
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "l2000001-0000-0000-0000-000000000010",
+      "name": "Call C4 Init Vuln",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1500, 0]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_C4_VULN_UPDATE }}",
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "l2000001-0000-0000-0000-000000000011",
+      "name": "Call C4 Session Handler",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1500, 150]
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "🔐 <b>VAPT Pentester Group Bot</b>\n\n<b>Perintah yang tersedia:</b>\n\n📊 /summary - Ringkasan status proyek\n📝 /update_activity - Log aktivitas harian\n🐛 /add_vuln - Tambah temuan vulnerability\n\n<i>Gunakan perintah di atas untuk berinteraksi dengan sistem.</i>",
+        "additionalFields": { "parse_mode": "HTML" }
+      },
+      "id": "l2000001-0000-0000-0000-000000000012",
+      "name": "Send Help",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1500, 300],
+      "credentials": {
+        "telegramApi": { "id": "{{ TELEGRAM_BOT_C_CRED }}", "name": "Telegram Bot C - Pentester Group" }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## VAPT Bot C — Pentester Group Dispatcher\n\n**Bot:** Telegram Bot C — Pentester Group\n**Validasi:** Hanya menerima pesan dari `PENTESTER_GROUP_CHAT_ID`\n\n**Routing:**\n- `/summary` → C1 (Shared Summary Generator)\n- `/update_activity` (init) → C3 Init Activity\n- `/update_activity` (session aktif) → C3 Session Handler\n- `/add_vuln` (init) → C4 Init Vuln\n- `/add_vuln` (session aktif) → C4 Session Handler\n- `/help`, `/start` → pesan bantuan\n\n**Session:** Redis `vapt:session:{userId}` per user (TTL 1 jam)\n**Setup:** Set `PENTESTER_GROUP_CHAT_ID` dan `WF_ID_*` di n8n Variables",
+        "height": 260,
+        "width": 500
+      },
+      "id": "l2000001-0000-0000-0000-000000000013",
+      "name": "Sticky Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -310]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger Bot C": {
+      "main": [[{ "node": "Parse Message", "type": "main", "index": 0 }]]
+    },
+    "Parse Message": {
+      "main": [[{ "node": "Is Allowed Group?", "type": "main", "index": 0 }]]
+    },
+    "Is Allowed Group?": {
+      "main": [
+        [{ "node": "Get User Session", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get User Session": {
+      "main": [[{ "node": "Resolve Session & Route", "type": "main", "index": 0 }]]
+    },
+    "Resolve Session & Route": {
+      "main": [[{ "node": "Route by Command", "type": "main", "index": 0 }]]
+    },
+    "Route by Command": {
+      "main": [
+        [{ "node": "Call C1 Summary", "type": "main", "index": 0 }],
+        [{ "node": "Call C3 Init Activity", "type": "main", "index": 0 }],
+        [{ "node": "Call C3 Session Handler", "type": "main", "index": 0 }],
+        [{ "node": "Call C4 Init Vuln", "type": "main", "index": 0 }],
+        [{ "node": "Call C4 Session Handler", "type": "main", "index": 0 }],
+        [{ "node": "Send Help", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "errorWorkflow": "{{ VAPT_ERROR_HANDLER_ID }}"
+  },
+  "staticData": null,
+  "tags": [{ "name": "vapt" }, { "name": "bot-c" }, { "name": "dispatcher" }],
+  "pinData": {},
+  "versionId": "l2000001-0000-0000-0000-000000000099",
+  "meta": { "templateCredsSetupCompleted": true, "instanceId": "{{ N8N_INSTANCE_ID }}" }
+}

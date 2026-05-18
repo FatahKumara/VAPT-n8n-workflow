@@ -1,0 +1,228 @@
+{
+  "name": "VAPT_C5_Weekly_Plan",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 2 * * 1" }
+          ]
+        }
+      },
+      "id": "p6000001-0000-0000-0000-000000000001",
+      "name": "Schedule Trigger (Monday 09:00 WIB)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "notes": "Monday 09:00 WIB = Monday 02:00 UTC"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": "={{ $vars.NOTION_DB1_PROJECT_LIST }}",
+        "returnAll": true
+      },
+      "id": "p6000001-0000-0000-0000-000000000002",
+      "name": "Fetch Active Projects",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [250, -100],
+      "credentials": {
+        "notionApi": { "id": "{{ NOTION_CRED }}", "name": "Notion API" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": "={{ $vars.NOTION_DB3_TASK_LIST }}",
+        "returnAll": true
+      },
+      "id": "p6000001-0000-0000-0000-000000000003",
+      "name": "Fetch Pending Tasks",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [250, 100],
+      "credentials": {
+        "notionApi": { "id": "{{ NOTION_CRED }}", "name": "Notion API" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "output": "input1"
+      },
+      "id": "p6000001-0000-0000-0000-000000000004",
+      "name": "Merge Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [500, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const projects = $('Fetch Active Projects').all().map(i => i.json);\nconst tasks = $('Fetch Pending Tasks').all().map(i => i.json);\n\nconst now = new Date();\nconst weekEnd = new Date(now);\nweekEnd.setDate(now.getDate() + 7);\n\nfunction getProp(props, key, type) {\n  const p = props?.[key];\n  if (!p) return null;\n  if (type === 'title') return p.title?.[0]?.plain_text || null;\n  if (type === 'text') return p.rich_text?.[0]?.plain_text || null;\n  if (type === 'select') return p.select?.name || null;\n  if (type === 'multi_select') return (p.multi_select || []).map(s => s.name);\n  if (type === 'date') return p.date?.start || null;\n  if (type === 'relation') return (p.relation || []).map(r => r.id);\n  return null;\n}\n\nconst phaseDateMap = {\n  'Pre-Kickoff': 'date_pre_kickoff', 'Kickoff': 'date_kickoff',\n  'Initial Test': 'date_initial_test', 'Initial Report': 'date_initial_report',\n  'Presentation': 'date_presentation', 'Patching': 'date_patching',\n  'Retest': 'date_retest', 'Retest Report': 'date_retest_report'\n};\n\nconst activeProjects = projects.filter(p => {\n  const phase = getProp(p.properties, 'current_phase', 'select');\n  return phase && phase !== 'Retest Report';\n});\n\nconst projectPlans = activeProjects.map(proj => {\n  const props = proj.properties;\n  const projectId = getProp(props, 'project_id', 'title');\n  const projectName = getProp(props, 'project_name', 'text');\n  const clientName = getProp(props, 'client_name', 'text');\n  const currentPhase = getProp(props, 'current_phase', 'select');\n  const methodology = getProp(props, 'methodology', 'select');\n\n  // Get all upcoming dates within next 7 days\n  const upcomingDeadlines = [];\n  Object.entries(phaseDateMap).forEach(([phase, field]) => {\n    const d = getProp(props, field, 'date');\n    if (d) {\n      const date = new Date(d);\n      if (date >= now && date <= weekEnd) {\n        const daysUntil = Math.ceil((date - now) / (1000 * 60 * 60 * 24));\n        upcomingDeadlines.push({ phase, date: d, daysUntil });\n      }\n    }\n  });\n\n  // Get tasks for this project\n  const projTasks = tasks.filter(t => {\n    const rel = t.properties?.project_id?.relation || [];\n    return rel.some(r => r.id === proj.id);\n  });\n\n  const pendingTasks = projTasks.filter(t => {\n    const status = getProp(t.properties, 'task_status', 'select');\n    return status !== 'Done';\n  }).map(t => ({\n    name: getProp(t.properties, 'task_name', 'text'),\n    status: getProp(t.properties, 'task_status', 'select'),\n    due: getProp(t.properties, 'due_date', 'date'),\n    pentesterId: (t.properties?.pentester_id?.relation || [])[0]?.id\n  }));\n\n  return { projectId, projectName, clientName, currentPhase, methodology, upcomingDeadlines, pendingTasks };\n});\n\nconst weekNumber = Math.ceil((now - new Date(now.getFullYear(), 0, 1)) / (7 * 24 * 60 * 60 * 1000));\n\nreturn [{ json: { projectPlans, weekNumber, weekStart: now.toISOString().split('T')[0], weekEnd: weekEnd.toISOString().split('T')[0] } }];"
+      },
+      "id": "p6000001-0000-0000-0000-000000000005",
+      "name": "Aggregate Weekly Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 0]
+    },
+    {
+      "parameters": {
+        "model": "claude-sonnet-4-20250514",
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 4096
+        }
+      },
+      "id": "p6000001-0000-0000-0000-000000000006",
+      "name": "Claude LLM",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [1000, 150],
+      "credentials": {
+        "anthropicApi": { "id": "{{ ANTHROPIC_CRED }}", "name": "Anthropic API" }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json, null, 2) }}",
+        "options": {
+          "systemMessage": "Kamu adalah asisten manajemen proyek VAPT yang menghasilkan rencana mingguan untuk tim pentester.\n\nBuat Weekly Work Plan dalam Bahasa Indonesia yang terstruktur dan jelas berdasarkan data proyek yang diberikan.\n\nFormat output:\n📅 **WEEKLY PLAN — Minggu ke-[X]**\n📆 [Tanggal Mulai] – [Tanggal Akhir]\n\n**RINGKASAN MINGGU INI:**\n• Total proyek aktif: X\n• Deadline minggu ini: X milestone\n\nUntuk setiap proyek:\n━━━━━━━━━━━━━━━━\n📋 **[Project ID] — [Nama Proyek]**\n🏢 Klien: [nama]\n📍 Fase: [fase saat ini]\n🎯 Metodologi: [metodologi]\n\n**Deadline Minggu Ini:**\n• [fase]: [tanggal] ([X hari lagi])\n\n**Task Prioritas:**\n• ✅ [task yang harus selesai]\n• 🔄 [task in-progress]\n• ⏳ [task pending]\n\n**Fokus Utama:**\n[Prioritas pengerjaan untuk minggu ini]\n\nAkhiri dengan:\n🎯 **PRIORITAS KESELURUHAN MINGGU INI:**\n1. [prioritas 1]\n2. [prioritas 2]\n3. [prioritas 3]\n\nBatasi total 3000 karakter."
+        }
+      },
+      "id": "p6000001-0000-0000-0000-000000000007",
+      "name": "Generate Weekly Plan",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [1000, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const planText = $input.first().json.text || 'Weekly plan tidak dapat dibuat.';\nconst weekData = $('Aggregate Weekly Data').first().json;\nconst weekNum = weekData.weekNumber;\nconst weekStart = weekData.weekStart;\n\nreturn [{ json: { planText, weekNum, weekStart, chatId: $vars.PENTESTER_GROUP_CHAT_ID } }];"
+      },
+      "id": "p6000001-0000-0000-0000-000000000008",
+      "name": "Prepare Plan Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 0]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "create",
+        "databaseId": "={{ $vars.NOTION_DB6_WEEKLY_SUMMARY }}",
+        "title": "={{ 'PLAN-W' + $json.weekNum + '-' + $json.weekStart }}",
+        "propertiesUi": {
+          "propertyValues": [
+            { "key": "week_number", "type": "number", "numberValue": "={{ $json.weekNum }}" },
+            { "key": "summary_type", "type": "select", "selectValue": "Weekly Plan" },
+            { "key": "summary_content", "type": "richText", "textContent": "={{ $json.planText }}" },
+            { "key": "generated_date", "type": "date", "dateValue": "={{ $json.weekStart }}" }
+          ]
+        }
+      },
+      "id": "p6000001-0000-0000-0000-000000000009",
+      "name": "Save Plan to Notion DB6",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [1500, 0],
+      "credentials": {
+        "notionApi": { "id": "{{ NOTION_CRED }}", "name": "Notion API" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $('Prepare Plan Output').item.json.chatId }}",
+        "text": "={{ $('Prepare Plan Output').item.json.planText }}",
+        "additionalFields": { "parse_mode": "HTML" }
+      },
+      "id": "p6000001-0000-0000-0000-000000000010",
+      "name": "Send Weekly Plan to Group",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1750, 0],
+      "credentials": {
+        "telegramApi": { "id": "{{ TELEGRAM_BOT_C_CRED }}", "name": "Telegram Bot C - Pentester Group" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "content": "## VAPT C5 — Weekly Plan (Monday)\n\n**Schedule:** Setiap Senin 09:00 WIB (02:00 UTC)\n\n**Data yang diambil:**\n- DB-1: Semua proyek aktif + timeline minggu ini\n- DB-3: Task pending per proyek\n\n**Output:**\n1. Claude generate weekly plan Bahasa Indonesia\n2. Save ke Notion DB-6 (summary_type: Weekly Plan)\n3. Kirim ke Pentester Group via Bot C",
+        "height": 180,
+        "width": 450
+      },
+      "id": "p6000001-0000-0000-0000-000000000011",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -250]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (Monday 09:00 WIB)": {
+      "main": [
+        [
+          { "node": "Fetch Active Projects", "type": "main", "index": 0 },
+          { "node": "Fetch Pending Tasks", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fetch Active Projects": {
+      "main": [[{ "node": "Merge Data", "type": "main", "index": 0 }]]
+    },
+    "Fetch Pending Tasks": {
+      "main": [[{ "node": "Merge Data", "type": "main", "index": 1 }]]
+    },
+    "Merge Data": {
+      "main": [[{ "node": "Aggregate Weekly Data", "type": "main", "index": 0 }]]
+    },
+    "Aggregate Weekly Data": {
+      "main": [[{ "node": "Generate Weekly Plan", "type": "main", "index": 0 }]]
+    },
+    "Claude LLM": {
+      "ai_languageModel": [[{ "node": "Generate Weekly Plan", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Generate Weekly Plan": {
+      "main": [[{ "node": "Prepare Plan Output", "type": "main", "index": 0 }]]
+    },
+    "Prepare Plan Output": {
+      "main": [
+        [
+          { "node": "Save Plan to Notion DB6", "type": "main", "index": 0 },
+          { "node": "Send Weekly Plan to Group", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "errorWorkflow": "{{ VAPT_ERROR_HANDLER_ID }}"
+  },
+  "staticData": null,
+  "tags": [{ "name": "vapt" }, { "name": "bot-c" }, { "name": "weekly" }, { "name": "scheduled" }],
+  "pinData": {},
+  "versionId": "p6000001-0000-0000-0000-000000000099",
+  "meta": { "templateCredsSetupCompleted": true, "instanceId": "{{ N8N_INSTANCE_ID }}" }
+}

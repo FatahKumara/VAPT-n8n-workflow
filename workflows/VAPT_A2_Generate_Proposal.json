@@ -1,0 +1,770 @@
+{
+  "name": "VAPT_A2_Generate_Proposal",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "chatId",
+              "type": "string"
+            },
+            {
+              "name": "command",
+              "type": "string"
+            },
+            {
+              "name": "callbackData",
+              "type": "string"
+            },
+            {
+              "name": "session",
+              "type": "object"
+            },
+            {
+              "name": "route",
+              "type": "string"
+            },
+            {
+              "name": "text",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "e5000001-0000-0000-0000-000000000001",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.route }}",
+              "rightValue": "a2",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "e5000001-0000-0000-0000-000000000002",
+      "name": "Is Initial Command?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        250,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "=vapt:session:{{ $json.chatId }}",
+        "value": "={{ JSON.stringify({ command: '/generate_proposal', step: 'waiting_client_name', data: {} }) }}",
+        "expire": true,
+        "seconds": 3600
+      },
+      "id": "e5000001-0000-0000-0000-000000000003",
+      "name": "Init Proposal Session",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        500,
+        -150
+      ],
+      "credentials": {
+        "redis": {
+          "id": "{{ REDIS_CRED }}",
+          "name": "Redis VAPT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $('Execute Workflow Trigger').item.json.chatId }}",
+        "text": "💼 <b>Generate Proposal VAPT</b>\n\nMasukkan nama klien/perusahaan:",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "reply_markup": "{\"force_reply\": true, \"input_field_placeholder\": \"Nama klien...\"}"
+        }
+      },
+      "id": "e5000001-0000-0000-0000-000000000004",
+      "name": "Ask Client Name",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        750,
+        -150
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const incoming = $('Execute Workflow Trigger').first().json;\nconst session = incoming.session || {};\nconst step = session.step;\nconst data = session.data || {};\nconst chatId = incoming.chatId;\nconst text = incoming.text || '';\nconst cbData = incoming.callbackData;\n\nreturn [{ json: { chatId, step, data, text, cbData } }];"
+      },
+      "id": "e5000001-0000-0000-0000-000000000005",
+      "name": "Parse Session Step",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_client_name",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "got_client"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_object_list",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "got_objects"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_methodology",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "got_methodology"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_scope",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "got_scope"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e5000001-0000-0000-0000-000000000006",
+      "name": "Route by Step",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        750,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "=vapt:session:{{ $json.chatId }}",
+        "value": "={{ JSON.stringify({ command: '/generate_proposal', step: 'waiting_object_list', data: { ...($json.data), client_name: $json.text } }) }}",
+        "expire": true,
+        "seconds": 3600
+      },
+      "id": "e5000001-0000-0000-0000-000000000007",
+      "name": "Save Client → Ask Objects",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        0
+      ],
+      "credentials": {
+        "redis": {
+          "id": "{{ REDIS_CRED }}",
+          "name": "Redis VAPT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "✅ Klien: <b>{{ $json.text }}</b>\n\nMasukkan daftar objek pengujian (pisahkan dengan koma):\n<i>Contoh: Web App, Mobile App iOS, API Gateway, Network Infrastructure</i>",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "reply_markup": "{\"force_reply\": true}"
+        }
+      },
+      "id": "e5000001-0000-0000-0000-000000000008",
+      "name": "Ask Object List",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1250,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "=vapt:session:{{ $json.chatId }}",
+        "value": "={{ JSON.stringify({ command: '/generate_proposal', step: 'waiting_methodology', data: { ...($json.data), object_list: $json.text } }) }}",
+        "expire": true,
+        "seconds": 3600
+      },
+      "id": "e5000001-0000-0000-0000-000000000009",
+      "name": "Save Objects → Ask Methodology",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        150
+      ],
+      "credentials": {
+        "redis": {
+          "id": "{{ REDIS_CRED }}",
+          "name": "Redis VAPT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "✅ Objek pengujian tersimpan.\n\nPilih metodologi pengujian:",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "reply_markup": "{\"inline_keyboard\": [[{\"text\": \"⬛ Black Box\", \"callback_data\": \"proposal:method:Black Box\"}, {\"text\": \"🔲 Grey Box\", \"callback_data\": \"proposal:method:Grey Box\"}, {\"text\": \"⬜ White Box\", \"callback_data\": \"proposal:method:White Box\"}]]}"
+        }
+      },
+      "id": "e5000001-0000-0000-0000-000000000010",
+      "name": "Ask Methodology",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1250,
+        150
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "=vapt:session:{{ $json.chatId }}",
+        "value": "={{ JSON.stringify({ command: '/generate_proposal', step: 'waiting_scope', data: { ...($json.data), methodology: $json.cbData.replace('proposal:method:', '') } }) }}",
+        "expire": true,
+        "seconds": 3600
+      },
+      "id": "e5000001-0000-0000-0000-000000000011",
+      "name": "Save Methodology → Ask Scope",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        300
+      ],
+      "credentials": {
+        "redis": {
+          "id": "{{ REDIS_CRED }}",
+          "name": "Redis VAPT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "✅ Metodologi dipilih.\n\nDeskripsikan estimasi ruang lingkup proyek (scope, jumlah target, kompleksitas, dll):",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "reply_markup": "{\"force_reply\": true}"
+        }
+      },
+      "id": "e5000001-0000-0000-0000-000000000012",
+      "name": "Ask Scope Description",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1250,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const item = $input.first().json;\nconst data = item.data || {};\nconst templateText = item.templateText || '';\nconst fullData = { ...data, estimated_scope: item.text };\n\nconst templateSection = templateText\n  ? '\\n\\n---\\nTEMPLATE ACUAN PROPOSAL\\nIkuti struktur, format, dan gaya penulisan template berikut secara konsisten:\\n\\n' + templateText + '\\n---'\n  : '';\n\nconst systemPrompt = 'Kamu adalah konsultan keamanan siber senior dan penulis proposal profesional. Buat proposal layanan VAPT (Vulnerability Assessment and Penetration Testing) yang komprehensif dalam Bahasa Indonesia.' + templateSection + '\\n\\nJika template acuan tersedia, ikuti struktur dan formatnya secara konsisten. Proposal harus mencakup:\\n1. Executive Summary\\n2. Latar Belakang & Kebutuhan\\n3. Ruang Lingkup Pengujian\\n4. Metodologi Pengujian: ' + (fullData.methodology || '') + '\\n5. Timeline Pelaksanaan\\n6. Deliverables\\n7. Tim Pelaksana\\n8. Investasi (placeholder [HARGA])\\n9. Ketentuan & Syarat\\n10. Tentang Perusahaan\\n\\nGunakan bahasa profesional dan persuasif.';\n\nreturn [{ json: { chatId: item.chatId, data: fullData, systemPrompt, userMessage: JSON.stringify(fullData, null, 2) } }];"
+      },
+      "id": "e5000001-0000-0000-0000-000000000013",
+      "name": "Build Proposal Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "⏳ Sedang membuat proposal untuk <b>{{ $json.data.client_name }}</b>...\n\n<i>Ini membutuhkan 10-20 detik.</i>",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "e5000001-0000-0000-0000-000000000014",
+      "name": "Send Processing Notice",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1250,
+        450
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "claude-sonnet-4-20250514",
+        "options": {
+          "temperature": 0.4,
+          "maxTokens": 8192
+        }
+      },
+      "id": "e5000001-0000-0000-0000-000000000015",
+      "name": "Claude LLM",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        1500,
+        600
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "{{ ANTHROPIC_CRED }}",
+          "name": "Anthropic API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.userMessage }}",
+        "options": {
+          "systemMessage": "={{ $json.systemPrompt }}"
+        }
+      },
+      "id": "e5000001-0000-0000-0000-000000000016",
+      "name": "Generate Proposal via Claude",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1500,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const generated = $input.first().json.text || '';\nconst chatId = $('Build Proposal Prompt').first().json.chatId;\nconst clientName = $('Build Proposal Prompt').first().json.data.client_name;\n\n// Clear session\nconst clearKey = `vapt:session:${chatId}`;\n\nconst MAX_LEN = 4000;\nconst header = `💼 <b>PROPOSAL VAPT — ${clientName}</b>\\n${'═'.repeat(30)}\\n\\n`;\nconst fullText = header + generated;\n\nconst messages = [];\nif (fullText.length <= MAX_LEN) {\n  messages.push({ chatId, text: fullText, clearKey });\n} else {\n  let remaining = fullText;\n  let first = true;\n  while (remaining.length > 0) {\n    let chunk = remaining.substring(0, MAX_LEN);\n    const lb = chunk.lastIndexOf('\\n\\n');\n    if (lb > MAX_LEN * 0.5) chunk = remaining.substring(0, lb + 2);\n    messages.push({ chatId, text: chunk, clearKey: first ? clearKey : null });\n    remaining = remaining.substring(chunk.length);\n    first = false;\n  }\n}\n\nreturn messages.map(m => ({ json: m }));"
+      },
+      "id": "e5000001-0000-0000-0000-000000000017",
+      "name": "Split Proposal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1750,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "={{ $json.clearKey }}"
+      },
+      "id": "e5000001-0000-0000-0000-000000000018",
+      "name": "Clear Session",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        300
+      ],
+      "credentials": {
+        "redis": {
+          "id": "{{ REDIS_CRED }}",
+          "name": "Redis VAPT"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "e5000001-0000-0000-0000-000000000019",
+      "name": "Send Proposal Parts",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2000,
+        450
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "content": "## VAPT A2 — Generate Proposal\n\n**Trigger:** Sub-workflow dipanggil oleh Bot A Dispatcher (`/generate_proposal`)\n\n**Flow (4 langkah via Redis session):**\n1. Masukkan nama klien/perusahaan\n2. Masukkan daftar objek pengujian\n3. Pilih metodologi (Black/Grey/White Box) — inline keyboard\n4. Deskripsikan ruang lingkup\n   → Fetch template proposal dari Notion (`NOTION_PAGE_PROPOSAL_TEMPLATE`)\n   → Claude generate proposal mengikuti struktur template\n\n**Output:** Proposal VAPT 10 bagian dalam Bahasa Indonesia dikirim ke PM via Bot A\n\n**Template:** Halaman Notion dengan konten template sebagai rich text blocks\n**Session Key:** `vapt:session:{chatId}` (TTL 1 jam)",
+        "height": 250,
+        "width": 510
+      },
+      "id": "e5000001-0000-0000-0000-000000000020",
+      "name": "Sticky Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "block",
+        "operation": "getAll",
+        "blockId": "={{ $vars.NOTION_PAGE_PROPOSAL_TEMPLATE }}",
+        "returnAll": true
+      },
+      "id": "e5000001-0000-0000-0000-000000000021",
+      "name": "Fetch Proposal Template",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        750,
+        450
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "{{ NOTION_CRED }}",
+          "name": "Notion API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const blocks = $input.all().map(i => i.json);\nconst sessionItem = $('Parse Session Step').first().json;\n\nconst textTypes = ['paragraph','heading_1','heading_2','heading_3',\n  'bulleted_list_item','numbered_list_item','to_do','quote','callout','code'];\n\nconst lines = blocks\n  .filter(b => textTypes.includes(b.type))\n  .map(b => {\n    const content = b[b.type];\n    if (!content?.rich_text) return '';\n    const text = content.rich_text.map(r => r.plain_text || '').join('');\n    if (!text.trim()) return '';\n    if (b.type === 'heading_1') return '\\n# ' + text;\n    if (b.type === 'heading_2') return '\\n## ' + text;\n    if (b.type === 'heading_3') return '\\n### ' + text;\n    if (b.type === 'bulleted_list_item') return '\\u2022 ' + text;\n    if (b.type === 'numbered_list_item') return '- ' + text;\n    return text;\n  })\n  .filter(t => t);\n\nconst templateText = lines.length > 0 ? lines.join('\\n') : '';\n\nreturn [{ json: {\n  templateText,\n  chatId: sessionItem.chatId,\n  step: sessionItem.step,\n  data: sessionItem.data || {},\n  text: sessionItem.text || ''\n} }];"
+      },
+      "id": "e5000001-0000-0000-0000-000000000022",
+      "name": "Extract Proposal Template",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        450
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Is Initial Command?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Initial Command?": {
+      "main": [
+        [
+          {
+            "node": "Init Proposal Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Session Step",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Proposal Session": {
+      "main": [
+        [
+          {
+            "node": "Ask Client Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Session Step": {
+      "main": [
+        [
+          {
+            "node": "Route by Step",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Step": {
+      "main": [
+        [
+          {
+            "node": "Save Client → Ask Objects",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Objects → Ask Methodology",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Methodology → Ask Scope",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Proposal Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Client → Ask Objects": {
+      "main": [
+        [
+          {
+            "node": "Ask Object List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Objects → Ask Methodology": {
+      "main": [
+        [
+          {
+            "node": "Ask Methodology",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Methodology → Ask Scope": {
+      "main": [
+        [
+          {
+            "node": "Ask Scope Description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Proposal Prompt": {
+      "main": [
+        [
+          {
+            "node": "Send Processing Notice",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate Proposal via Claude",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude LLM": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate Proposal via Claude",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Proposal via Claude": {
+      "main": [
+        [
+          {
+            "node": "Split Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Proposal": {
+      "main": [
+        [
+          {
+            "node": "Clear Session",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Proposal Parts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Proposal Template": {
+      "main": [
+        [
+          {
+            "node": "Extract Proposal Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Proposal Template": {
+      "main": [
+        [
+          {
+            "node": "Build Proposal Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "errorWorkflow": "{{ VAPT_ERROR_HANDLER_ID }}"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "vapt"
+    },
+    {
+      "name": "bot-a"
+    },
+    {
+      "name": "proposal"
+    }
+  ],
+  "pinData": {},
+  "versionId": "e5000001-0000-0000-0000-000000000099",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "{{ N8N_INSTANCE_ID }}"
+  }
+}

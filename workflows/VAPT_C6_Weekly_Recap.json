@@ -1,0 +1,276 @@
+{
+  "name": "VAPT_C6_Weekly_Recap",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 11 * * 5" }
+          ]
+        }
+      },
+      "id": "q7000001-0000-0000-0000-000000000001",
+      "name": "Schedule Trigger (Friday 18:00 WIB)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "notes": "Friday 18:00 WIB = Friday 11:00 UTC"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const now = new Date();\n// Calculate this week's Monday\nconst dayOfWeek = now.getDay();\nconst mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;\nconst monday = new Date(now);\nmonday.setDate(now.getDate() + mondayOffset);\nmonday.setHours(0, 0, 0, 0);\n\nconst fridayDate = now.toISOString().split('T')[0];\nconst mondayDate = monday.toISOString().split('T')[0];\nconst weekNumber = Math.ceil((now - new Date(now.getFullYear(), 0, 1)) / (7 * 24 * 60 * 60 * 1000));\n\nreturn [{ json: { weekStart: mondayDate, weekEnd: fridayDate, weekNumber } }];"
+      },
+      "id": "q7000001-0000-0000-0000-000000000002",
+      "name": "Calculate Week Range",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 0]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": "={{ $vars.NOTION_DB4_DAILY_LOG }}",
+        "returnAll": true,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            { "key": "log_date", "condition": "on_or_after", "value": "={{ $json.weekStart }}" },
+            { "key": "log_date", "condition": "on_or_before", "value": "={{ $json.weekEnd }}" }
+          ]
+        }
+      },
+      "id": "q7000001-0000-0000-0000-000000000003",
+      "name": "Fetch Week Activity Logs",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [500, -200],
+      "credentials": {
+        "notionApi": { "id": "{{ NOTION_CRED }}", "name": "Notion API" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": "={{ $vars.NOTION_DB5_VULN_LIST }}",
+        "returnAll": true,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            { "key": "discovery_date", "condition": "on_or_after", "value": "={{ $('Calculate Week Range').item.json.weekStart }}" },
+            { "key": "discovery_date", "condition": "on_or_before", "value": "={{ $('Calculate Week Range').item.json.weekEnd }}" }
+          ]
+        }
+      },
+      "id": "q7000001-0000-0000-0000-000000000004",
+      "name": "Fetch Week Vulnerabilities",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [500, 0],
+      "credentials": {
+        "notionApi": { "id": "{{ NOTION_CRED }}", "name": "Notion API" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": "={{ $vars.NOTION_DB3_TASK_LIST }}",
+        "returnAll": true
+      },
+      "id": "q7000001-0000-0000-0000-000000000005",
+      "name": "Fetch All Tasks",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [500, 200],
+      "credentials": {
+        "notionApi": { "id": "{{ NOTION_CRED }}", "name": "Notion API" }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "output": "input1"
+      },
+      "id": "q7000001-0000-0000-0000-000000000006",
+      "name": "Merge All Weekly Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [750, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const logs = $('Fetch Week Activity Logs').all().map(i => i.json);\nconst vulns = $('Fetch Week Vulnerabilities').all().map(i => i.json);\nconst tasks = $('Fetch All Tasks').all().map(i => i.json);\nconst weekData = $('Calculate Week Range').first().json;\n\nfunction getProp(props, key, type) {\n  const p = props?.[key];\n  if (!p) return null;\n  if (type === 'title') return p.title?.[0]?.plain_text || null;\n  if (type === 'text') return p.rich_text?.[0]?.plain_text || null;\n  if (type === 'select') return p.select?.name || null;\n  if (type === 'number') return p.number || 0;\n  if (type === 'date') return p.date?.start || null;\n  if (type === 'relation') return (p.relation || []).map(r => r.id);\n  return null;\n}\n\n// Aggregate logs by pentester\nconst logsByPentester = {};\nlet totalHours = 0;\nlogs.forEach(log => {\n  const pentesterRel = getProp(log.properties, 'pentester_id', 'relation') || [];\n  const pentesterId = pentesterRel[0] || 'unknown';\n  const hours = getProp(log.properties, 'hours_spent', 'number');\n  const activity = getProp(log.properties, 'activity_description', 'text') || '';\n  const date = getProp(log.properties, 'log_date', 'date');\n  totalHours += hours;\n  if (!logsByPentester[pentesterId]) logsByPentester[pentesterId] = { logs: [], totalHours: 0 };\n  logsByPentester[pentesterId].logs.push({ date, activity: activity.substring(0, 100), hours });\n  logsByPentester[pentesterId].totalHours += hours;\n});\n\n// Vulnerability stats\nconst vulnStats = {\n  total: vulns.length,\n  by_severity: {},\n  details: []\n};\nvulns.forEach(v => {\n  const sev = getProp(v.properties, 'severity', 'select') || 'Unknown';\n  vulnStats.by_severity[sev] = (vulnStats.by_severity[sev] || 0) + 1;\n  vulnStats.details.push({\n    name: getProp(v.properties, 'vulnerability_name', 'text'),\n    severity: sev,\n    cvss: getProp(v.properties, 'cvss_score', 'number'),\n    target: getProp(v.properties, 'affected_target', 'text')\n  });\n});\n\n// Task completion stats\nconst taskStats = {\n  total: tasks.length,\n  done: tasks.filter(t => getProp(t.properties, 'task_status', 'select') === 'Done').length,\n  in_progress: tasks.filter(t => getProp(t.properties, 'task_status', 'select') === 'In Progress').length,\n  blocked: tasks.filter(t => getProp(t.properties, 'task_status', 'select') === 'Blocked').length,\n  not_started: tasks.filter(t => getProp(t.properties, 'task_status', 'select') === 'Not Started').length\n};\n\nconst blockedTasks = tasks\n  .filter(t => getProp(t.properties, 'task_status', 'select') === 'Blocked')\n  .map(t => ({\n    name: getProp(t.properties, 'task_name', 'text'),\n    reason: getProp(t.properties, 'blocking_reason', 'text')\n  }));\n\nreturn [{ json: {\n  weekData,\n  logsByPentester,\n  totalHours,\n  totalLogs: logs.length,\n  vulnStats,\n  taskStats,\n  blockedTasks\n} }];"
+      },
+      "id": "q7000001-0000-0000-0000-000000000007",
+      "name": "Aggregate Weekly Recap Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 0]
+    },
+    {
+      "parameters": {
+        "model": "claude-sonnet-4-20250514",
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 4096
+        }
+      },
+      "id": "q7000001-0000-0000-0000-000000000008",
+      "name": "Claude LLM",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [1250, 150],
+      "credentials": {
+        "anthropicApi": { "id": "{{ ANTHROPIC_CRED }}", "name": "Anthropic API" }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json, null, 2) }}",
+        "options": {
+          "systemMessage": "Kamu adalah asisten manajemen proyek VAPT yang membuat weekly recap untuk tim pentester.\n\nBuat Weekly Activity Recap dalam Bahasa Indonesia yang informatif dan terstruktur berdasarkan data yang diberikan.\n\nFormat output:\n📊 **WEEKLY RECAP — Minggu ke-[X]**\n📆 [Tanggal Mulai] – [Tanggal Akhir]\n\n**RINGKASAN EKSEKUTIF:**\n• Total jam kerja: X jam (dari X log aktivitas)\n• Vulnerability ditemukan: X total\n• Task selesai: X/X\n\n**📋 AKTIVITAS PER PENTESTER:**\nUntuk setiap pentester:\n👤 **[Nama/ID Pentester]** ([X jam])\n• [aktivitas 1 (tanggal)]\n• [aktivitas 2 (tanggal)]\n\n**🐛 VULNERABILITY DITEMUKAN MINGGU INI:**\nRingkasan berdasarkan severity:\n🔴 Critical: X | 🟠 High: X | 🟡 Medium: X | 🟢 Low: X\n\nDetail temuan penting:\n• [vuln name] (Severity - CVSS: X.X)\n\n**✅ STATUS TASK:**\n• Selesai: X\n• In Progress: X\n• Blocked: X (jika ada: sebutkan reason)\n• Belum dimulai: X\n\n**⚠️ BLOCKER & HAMBATAN:**\n[Daftar blocker jika ada]\n\n**🏆 PENCAPAIAN MINGGU INI:**\n[Key achievements]\n\n**📅 FOKUS MINGGU DEPAN:**\n[Rekomendasi prioritas berdasarkan data]\n\nBatasi total 3500 karakter."
+        }
+      },
+      "id": "q7000001-0000-0000-0000-000000000009",
+      "name": "Generate Weekly Recap",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [1250, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const recapText = $input.first().json.text || 'Weekly recap tidak dapat dibuat.';\nconst weekData = $('Calculate Week Range').first().json;\nreturn [{ json: { recapText, weekNum: weekData.weekNumber, weekStart: weekData.weekStart, weekEnd: weekData.weekEnd, chatId: $vars.PENTESTER_GROUP_CHAT_ID } }];"
+      },
+      "id": "q7000001-0000-0000-0000-000000000010",
+      "name": "Prepare Recap Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, 0]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "create",
+        "databaseId": "={{ $vars.NOTION_DB6_WEEKLY_SUMMARY }}",
+        "title": "={{ 'RECAP-W' + $json.weekNum + '-' + $json.weekEnd }}",
+        "propertiesUi": {
+          "propertyValues": [
+            { "key": "week_number", "type": "number", "numberValue": "={{ $json.weekNum }}" },
+            { "key": "summary_type", "type": "select", "selectValue": "Weekly Recap" },
+            { "key": "summary_content", "type": "richText", "textContent": "={{ $json.recapText }}" },
+            { "key": "generated_date", "type": "date", "dateValue": "={{ $json.weekEnd }}" }
+          ]
+        }
+      },
+      "id": "q7000001-0000-0000-0000-000000000011",
+      "name": "Save Recap to Notion DB6",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [1750, 0],
+      "credentials": {
+        "notionApi": { "id": "{{ NOTION_CRED }}", "name": "Notion API" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $('Prepare Recap Output').item.json.chatId }}",
+        "text": "={{ $('Prepare Recap Output').item.json.recapText }}",
+        "additionalFields": { "parse_mode": "HTML" }
+      },
+      "id": "q7000001-0000-0000-0000-000000000012",
+      "name": "Send Recap to Group",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2000, 0],
+      "credentials": {
+        "telegramApi": { "id": "{{ TELEGRAM_BOT_C_CRED }}", "name": "Telegram Bot C - Pentester Group" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "content": "## VAPT C6 — Weekly Recap (Friday)\n\n**Schedule:** Setiap Jumat 18:00 WIB (11:00 UTC)\n\n**Data yang diambil (filter minggu ini Mon-Fri):**\n- DB-4: Activity logs\n- DB-5: Vulnerability baru ditemukan\n- DB-3: Task status changes\n\n**Output:**\n1. Aggregate data minggu ini\n2. Claude generate weekly recap Bahasa Indonesia\n3. Save ke Notion DB-6 (summary_type: Weekly Recap)\n4. Kirim ke Pentester Group",
+        "height": 200,
+        "width": 480
+      },
+      "id": "q7000001-0000-0000-0000-000000000013",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -280]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (Friday 18:00 WIB)": {
+      "main": [[{ "node": "Calculate Week Range", "type": "main", "index": 0 }]]
+    },
+    "Calculate Week Range": {
+      "main": [
+        [
+          { "node": "Fetch Week Activity Logs", "type": "main", "index": 0 },
+          { "node": "Fetch Week Vulnerabilities", "type": "main", "index": 0 },
+          { "node": "Fetch All Tasks", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fetch Week Activity Logs": {
+      "main": [[{ "node": "Merge All Weekly Data", "type": "main", "index": 0 }]]
+    },
+    "Fetch Week Vulnerabilities": {
+      "main": [[{ "node": "Merge All Weekly Data", "type": "main", "index": 1 }]]
+    },
+    "Fetch All Tasks": {
+      "main": [[{ "node": "Merge All Weekly Data", "type": "main", "index": 2 }]]
+    },
+    "Merge All Weekly Data": {
+      "main": [[{ "node": "Aggregate Weekly Recap Data", "type": "main", "index": 0 }]]
+    },
+    "Aggregate Weekly Recap Data": {
+      "main": [[{ "node": "Generate Weekly Recap", "type": "main", "index": 0 }]]
+    },
+    "Claude LLM": {
+      "ai_languageModel": [[{ "node": "Generate Weekly Recap", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Generate Weekly Recap": {
+      "main": [[{ "node": "Prepare Recap Output", "type": "main", "index": 0 }]]
+    },
+    "Prepare Recap Output": {
+      "main": [
+        [
+          { "node": "Save Recap to Notion DB6", "type": "main", "index": 0 },
+          { "node": "Send Recap to Group", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "errorWorkflow": "{{ VAPT_ERROR_HANDLER_ID }}"
+  },
+  "staticData": null,
+  "tags": [{ "name": "vapt" }, { "name": "bot-c" }, { "name": "weekly" }, { "name": "scheduled" }],
+  "pinData": {},
+  "versionId": "q7000001-0000-0000-0000-000000000099",
+  "meta": { "templateCredsSetupCompleted": true, "instanceId": "{{ N8N_INSTANCE_ID }}" }
+}

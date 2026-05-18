@@ -1,0 +1,125 @@
+{
+  "name": "VAPT_BOT_B_Dispatcher",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "id": "j0000001-0000-0000-0000-000000000001",
+      "name": "Telegram Trigger Bot B",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0],
+      "webhookId": "vapt-bot-b-webhook-001",
+      "credentials": {
+        "telegramApi": { "id": "{{ TELEGRAM_BOT_B_CRED }}", "name": "Telegram Bot B - Sales Admin" }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst message = body.message;\nif (!message) return [];\n\nconst chatId = message.chat.id;\nconst userId = String(message.from.id);\nconst text = message.text || '';\nconst firstName = message.from.first_name || '';\nconst chatType = message.chat.type; // 'group' | 'supergroup' | 'private'\nconst command = text.startsWith('/') ? text.split(' ')[0].split('@')[0].toLowerCase() : null;\n\n// Only respond to the configured Sales Admin group\nconst allowedChatId = String($vars.SALES_GROUP_CHAT_ID);\nconst isAllowedGroup = String(chatId) === allowedChatId || chatType === 'group' || chatType === 'supergroup';\n\nreturn [{ json: { chatId: String(chatId), userId, text, firstName, chatType, command, isAllowedGroup } }];"
+      },
+      "id": "j0000001-0000-0000-0000-000000000002",
+      "name": "Parse Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.isAllowedGroup }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ]
+        }
+      },
+      "id": "j0000001-0000-0000-0000-000000000003",
+      "name": "Is Allowed Group?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [500, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.command }}",
+              "rightValue": "/summary",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "j0000001-0000-0000-0000-000000000004",
+      "name": "Is Summary Command?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, -150]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_SHARED_SUMMARY }}",
+        "fields": {
+          "values": [
+            { "name": "target_chat_id", "stringValue": "={{ $json.chatId }}" },
+            { "name": "summary_mode", "stringValue": "sales_ondemand" }
+          ]
+        },
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "j0000001-0000-0000-0000-000000000005",
+      "name": "Call Summary Generator",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1000, -150]
+    },
+    {
+      "parameters": {
+        "content": "## BOT B — Sales & Admin Group Dispatcher\n\n**Scope:** Telegram Group Sales & Admin\n**Auth:** Validasi chat_id === SALES_GROUP_CHAT_ID\n\n**Commands:**\n- /summary → Trigger summary generator (shared with A5, C1)\n\n**Auto-update:** Lihat VAPT_B2_Sales_AutoUpdate.json\n\n**n8n Variables:**\n- SALES_GROUP_CHAT_ID\n- WF_ID_SHARED_SUMMARY",
+        "height": 180,
+        "width": 400
+      },
+      "id": "j0000001-0000-0000-0000-000000000006",
+      "name": "Sticky Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -250]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger Bot B": {
+      "main": [[{ "node": "Parse Message", "type": "main", "index": 0 }]]
+    },
+    "Parse Message": {
+      "main": [[{ "node": "Is Allowed Group?", "type": "main", "index": 0 }]]
+    },
+    "Is Allowed Group?": {
+      "main": [
+        [{ "node": "Is Summary Command?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is Summary Command?": {
+      "main": [
+        [{ "node": "Call Summary Generator", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "errorWorkflow": "{{ VAPT_ERROR_HANDLER_ID }}"
+  },
+  "staticData": null,
+  "tags": [{ "name": "vapt" }, { "name": "bot-b" }, { "name": "dispatcher" }],
+  "pinData": {},
+  "versionId": "j0000001-0000-0000-0000-000000000099",
+  "meta": { "templateCredsSetupCompleted": true, "instanceId": "{{ N8N_INSTANCE_ID }}" }
+}

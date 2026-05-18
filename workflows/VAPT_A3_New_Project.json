@@ -1,0 +1,411 @@
+{
+  "name": "VAPT_A3_New_Project",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            { "name": "chatId", "type": "string" },
+            { "name": "command", "type": "string" },
+            { "name": "callbackData", "type": "string" },
+            { "name": "session", "type": "object" },
+            { "name": "route", "type": "string" },
+            { "name": "text", "type": "string" }
+          ]
+        }
+      },
+      "id": "f6000001-0000-0000-0000-000000000001",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.route }}",
+              "rightValue": "a3_init",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "f6000001-0000-0000-0000-000000000002",
+      "name": "Is Init or Session?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [250, 0]
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "=vapt:session:{{ $json.chatId }}",
+        "value": "={{ JSON.stringify({ command: '/new_project', step: 'waiting_project_name', data: {} }) }}",
+        "expire": true,
+        "seconds": 3600
+      },
+      "id": "f6000001-0000-0000-0000-000000000003",
+      "name": "Init New Project Session",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [500, -200],
+      "credentials": { "redis": { "id": "{{ REDIS_CRED }}", "name": "Redis VAPT" } }
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $('Execute Workflow Trigger').item.json.chatId }}",
+        "text": "🆕 <b>Input Proyek Baru</b>\n\nKita akan mengisi data proyek secara bertahap.\n\n<b>Langkah 1/10:</b> Masukkan ID Proyek:\n<i>Format: VAPT-YYYY-NNN (contoh: VAPT-2025-001)</i>",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "reply_markup": "{\"force_reply\": true, \"input_field_placeholder\": \"VAPT-2025-001\"}"
+        }
+      },
+      "id": "f6000001-0000-0000-0000-000000000004",
+      "name": "Ask Project ID",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [750, -200],
+      "credentials": {
+        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const incoming = $('Execute Workflow Trigger').first().json;\nconst session = incoming.session || {};\nconst step = session.step;\nconst data = session.data || {};\nconst chatId = incoming.chatId;\nconst text = incoming.text || '';\nconst cbData = incoming.callbackData || '';\n\nreturn [{ json: { chatId, step, data, text, cbData } }];"
+      },
+      "id": "f6000001-0000-0000-0000-000000000005",
+      "name": "Parse Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 150]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_project_name", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s1_project_name" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_client_name", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s2_client_name" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_objects", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s3_objects" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_methodology", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s4_methodology" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_pre_kickoff", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s5_date_pkof" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_kickoff", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s6_date_kof" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_initial_test", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s7_date_itest" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_initial_report", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s8_date_irep" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_presentation", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s9_date_pres" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_patching", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s10_date_patch" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_retest", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s11_date_retest" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_retest_report", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s12_date_rreport" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f6000001-0000-0000-0000-000000000006",
+      "name": "Route by Step",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [750, 150]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Step handler factory\nconst item = $input.first().json;\nconst chatId = item.chatId;\nconst data = item.data || {};\nconst stepName = item.step;\nconst inputValue = item.text || item.cbData || '';\n\n// Determine what was just collected and what's next\nconst steps = [\n  { current: 'waiting_project_name',       field: 'project_id',       next: 'waiting_client_name',        stepNum: 2, question: 'Nama proyek lengkap:',              hint: 'Contoh: VAPT Infrastruktur PT ABC' },\n  { current: 'waiting_client_name',         field: 'client_name',      next: 'waiting_objects',             stepNum: 3, question: 'Daftar objek pengujian (pisahkan dengan koma):', hint: 'Contoh: Web App, API, Mobile App' },\n  { current: 'waiting_objects',             field: 'object_list',      next: 'waiting_methodology',         stepNum: 4, question: null, hint: null },\n  { current: 'waiting_methodology',         field: 'methodology',      next: 'waiting_date_pre_kickoff',    stepNum: 5, question: 'Tanggal Pre-Kickoff:', hint: 'Format: YYYY-MM-DD' },\n  { current: 'waiting_date_pre_kickoff',    field: 'date_pre_kickoff', next: 'waiting_date_kickoff',        stepNum: 6, question: 'Tanggal Kickoff:', hint: 'Format: YYYY-MM-DD' },\n  { current: 'waiting_date_kickoff',        field: 'date_kickoff',     next: 'waiting_date_initial_test',   stepNum: 7, question: 'Tanggal Mulai Initial Test:', hint: 'Format: YYYY-MM-DD' },\n  { current: 'waiting_date_initial_test',   field: 'date_initial_test',next: 'waiting_date_initial_report', stepNum: 8, question: 'Tanggal Initial Report:', hint: 'Format: YYYY-MM-DD' },\n  { current: 'waiting_date_initial_report', field: 'date_initial_report',next:'waiting_date_presentation',  stepNum: 9, question: 'Tanggal Presentasi:', hint: 'Format: YYYY-MM-DD' },\n  { current: 'waiting_date_presentation',   field: 'date_presentation',next: 'waiting_date_patching',       stepNum: 10, question: 'Tanggal Mulai Patching:', hint: 'Format: YYYY-MM-DD' },\n  { current: 'waiting_date_patching',       field: 'date_patching',    next: 'waiting_date_retest',          stepNum: 11, question: 'Tanggal Retest:', hint: 'Format: YYYY-MM-DD' },\n  { current: 'waiting_date_retest',         field: 'date_retest',      next: 'waiting_date_retest_report',   stepNum: 12, question: 'Tanggal Retest Report:', hint: 'Format: YYYY-MM-DD' },\n  { current: 'waiting_date_retest_report',  field: 'date_retest_report',next: 'COMPLETE',                   stepNum: null, question: null, hint: null }\n];\n\nconst currentStepDef = steps.find(s => s.current === stepName);\nif (!currentStepDef) return [{ json: { error: 'Unknown step: ' + stepName, chatId } }];\n\nconst updatedData = { ...data, [currentStepDef.field]: inputValue };\nconst nextStep = currentStepDef.next;\n\nreturn [{ json: { chatId, data: updatedData, nextStep, nextQuestion: currentStepDef.question ? { step: currentStepDef.stepNum, question: currentStepDef.question, hint: currentStepDef.hint } : null } }];"
+      },
+      "id": "f6000001-0000-0000-0000-000000000007",
+      "name": "Process Step & Advance",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 150]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.nextStep }}",
+              "rightValue": "COMPLETE",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "f6000001-0000-0000-0000-000000000008",
+      "name": "Is Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1250, 150]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.nextStep }}",
+              "rightValue": "waiting_methodology",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "f6000001-0000-0000-0000-000000000009",
+      "name": "Is Methodology Step?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1500, 0]
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "=vapt:session:{{ $json.chatId }}",
+        "value": "={{ JSON.stringify({ command: '/new_project', step: $json.nextStep, data: $json.data }) }}",
+        "expire": true,
+        "seconds": 3600
+      },
+      "id": "f6000001-0000-0000-0000-000000000010",
+      "name": "Save Session State",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [1750, -150],
+      "credentials": { "redis": { "id": "{{ REDIS_CRED }}", "name": "Redis VAPT" } }
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ '✅ Tersimpan!\\n\\n<b>Langkah ' + $json.nextQuestion.step + '/12:</b> ' + $json.nextQuestion.question + '\\n<i>' + ($json.nextQuestion.hint || '') + '</i>' }}",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "reply_markup": "{\"force_reply\": true}"
+        }
+      },
+      "id": "f6000001-0000-0000-0000-000000000011",
+      "name": "Ask Next Question",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2000, -150],
+      "credentials": {
+        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "=vapt:session:{{ $json.chatId }}",
+        "value": "={{ JSON.stringify({ command: '/new_project', step: 'waiting_methodology', data: $json.data }) }}",
+        "expire": true,
+        "seconds": 3600
+      },
+      "id": "f6000001-0000-0000-0000-000000000012",
+      "name": "Save Session for Methodology",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [1750, 100],
+      "credentials": { "redis": { "id": "{{ REDIS_CRED }}", "name": "Redis VAPT" } }
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "✅ Objek pengujian tersimpan.\n\n<b>Langkah 4/12:</b> Pilih metodologi pengujian:",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "reply_markup": "{\"inline_keyboard\": [[{\"text\": \"⬛ Black Box\", \"callback_data\": \"np:method:Black Box\"}, {\"text\": \"🔲 Grey Box\", \"callback_data\": \"np:method:Grey Box\"}, {\"text\": \"⬜ White Box\", \"callback_data\": \"np:method:White Box\"}]]}"
+        }
+      },
+      "id": "f6000001-0000-0000-0000-000000000013",
+      "name": "Ask Methodology (New Project)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2000, 100],
+      "credentials": {
+        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": "={{ $vars.NOTION_DB2_PENTESTER_LIST }}",
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "f6000001-0000-0000-0000-000000000014",
+      "name": "Fetch Active Pentesters",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [1500, 300],
+      "credentials": {
+        "notionApi": { "id": "{{ NOTION_CRED }}", "name": "Notion API" }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const pentesters = $input.all().map(i => i.json);\nconst prevData = $('Is Complete?').first().json;\n\nfunction getProp(props, key, type) {\n  const p = props?.[key];\n  if (!p) return '';\n  if (type === 'title') return p.title?.[0]?.plain_text || '';\n  if (type === 'text') return p.rich_text?.[0]?.plain_text || '';\n  if (type === 'select') return p.select?.name || '';\n  return '';\n}\n\nconst data = prevData.data || {};\n\n// Build Notion DB-1 create payload\nconst projectId = data.project_id || `VAPT-${new Date().getFullYear()}-${Math.floor(Math.random()*999).toString().padStart(3,'0')}`;\n\n// Parse objects into multi-select format\nconst objects = (data.object_list || '').split(',').map(o => ({ name: o.trim() })).filter(o => o.name);\n\nconst notionPayload = {\n  parent: { database_id: prevData.dbId },\n  properties: {\n    project_id: { title: [{ text: { content: projectId } }] },\n    project_name: { rich_text: [{ text: { content: data.project_name || '' } }] },\n    client_name: { rich_text: [{ text: { content: data.client_name || '' } }] },\n    object_list: { multi_select: objects },\n    methodology: { select: { name: (data.methodology || '').replace('np:method:', '') } },\n    current_phase: { select: { name: 'Pre-Kickoff' } },\n    date_pre_kickoff: data.date_pre_kickoff ? { date: { start: data.date_pre_kickoff } } : undefined,\n    date_kickoff: data.date_kickoff ? { date: { start: data.date_kickoff } } : undefined,\n    date_initial_test: data.date_initial_test ? { date: { start: data.date_initial_test } } : undefined,\n    date_initial_report: data.date_initial_report ? { date: { start: data.date_initial_report } } : undefined,\n    date_presentation: data.date_presentation ? { date: { start: data.date_presentation } } : undefined,\n    date_patching: data.date_patching ? { date: { start: data.date_patching } } : undefined,\n    date_retest: data.date_retest ? { date: { start: data.date_retest } } : undefined,\n    date_retest_report: data.date_retest_report ? { date: { start: data.date_retest_report } } : undefined\n  }\n};\n\n// Remove undefined values\nObject.keys(notionPayload.properties).forEach(k => {\n  if (notionPayload.properties[k] === undefined) delete notionPayload.properties[k];\n});\n\nreturn [{ json: { chatId: prevData.chatId, data, projectId, notionPayload } }];"
+      },
+      "id": "f6000001-0000-0000-0000-000000000015",
+      "name": "Build Notion Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1750, 300]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "create",
+        "databaseId": "={{ $vars.NOTION_DB1_PROJECT_LIST }}",
+        "title": "={{ $json.projectId }}",
+        "propertiesUi": {
+          "propertyValues": "={{ $json.notionPayload.properties }}"
+        }
+      },
+      "id": "f6000001-0000-0000-0000-000000000016",
+      "name": "Create Notion Project Record",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [2000, 300],
+      "credentials": {
+        "notionApi": { "id": "{{ NOTION_CRED }}", "name": "Notion API" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "=vapt:session:{{ $('Build Notion Payload').item.json.chatId }}"
+      },
+      "id": "f6000001-0000-0000-0000-000000000017",
+      "name": "Clear Session After Create",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [2250, 300],
+      "credentials": { "redis": { "id": "{{ REDIS_CRED }}", "name": "Redis VAPT" } },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const data = $('Build Notion Payload').first().json.data;\nconst projectId = $('Build Notion Payload').first().json.projectId;\nconst chatId = $('Build Notion Payload').first().json.chatId;\n\nconst confirmText = [\n  '✅ <b>Proyek Berhasil Dibuat!</b>',\n  '',\n  `📋 <b>ID Proyek:</b> ${projectId}`,\n  `🏷 <b>Nama:</b> ${data.project_name}`,\n  `🏢 <b>Klien:</b> ${data.client_name}`,\n  `🎯 <b>Metodologi:</b> ${(data.methodology || '').replace('np:method:', '')}`,\n  `📦 <b>Objek:</b> ${data.object_list}`,\n  '',\n  '<b>📅 Timeline:</b>',\n  `• Pre-Kickoff: ${data.date_pre_kickoff}`,\n  `• Kickoff: ${data.date_kickoff}`,\n  `• Initial Test: ${data.date_initial_test}`,\n  `• Initial Report: ${data.date_initial_report}`,\n  `• Presentasi: ${data.date_presentation}`,\n  `• Patching: ${data.date_patching}`,\n  `• Retest: ${data.date_retest}`,\n  `• Retest Report: ${data.date_retest_report}`,\n  '',\n  '📍 <b>Status:</b> Pre-Engagement | Fase: Pre-Kickoff',\n  '',\n  '📊 Data tersimpan di Notion. Gunakan /update_phase untuk update fase proyek.'\n].join('\\n');\n\nreturn [{ json: { chatId, text: confirmText } }];"
+      },
+      "id": "f6000001-0000-0000-0000-000000000018",
+      "name": "Build Confirmation Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2500, 300]
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": { "parse_mode": "HTML" }
+      },
+      "id": "f6000001-0000-0000-0000-000000000019",
+      "name": "Send Confirmation",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2750, 300],
+      "credentials": {
+        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## VAPT A3 — Input New Project\n\n**Conversational State Machine via Redis**\n\nSteps (12 langkah):\n1. project_id\n2. project_name\n3. object_list\n4. methodology (inline keyboard)\n5-12. Phase dates (YYYY-MM-DD)\n\nSession key: `vapt:session:{chatId}`\nTTL: 3600 detik (1 jam)\n\nPada akhir: Create record Notion DB-1 → Clear session → Kirim konfirmasi\n\n**Validasi tanggal:** Di production, tambahkan Code node untuk validasi format YYYY-MM-DD dan urutan kronologis.",
+        "height": 250,
+        "width": 500
+      },
+      "id": "f6000001-0000-0000-0000-000000000020",
+      "name": "Sticky Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -350]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{ "node": "Is Init or Session?", "type": "main", "index": 0 }]]
+    },
+    "Is Init or Session?": {
+      "main": [
+        [{ "node": "Init New Project Session", "type": "main", "index": 0 }],
+        [{ "node": "Parse Session", "type": "main", "index": 0 }]
+      ]
+    },
+    "Init New Project Session": {
+      "main": [[{ "node": "Ask Project ID", "type": "main", "index": 0 }]]
+    },
+    "Parse Session": {
+      "main": [[{ "node": "Route by Step", "type": "main", "index": 0 }]]
+    },
+    "Route by Step": {
+      "main": [
+        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
+        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
+        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
+        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
+        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
+        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
+        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
+        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
+        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
+        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
+        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
+        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }]
+      ]
+    },
+    "Process Step & Advance": {
+      "main": [[{ "node": "Is Complete?", "type": "main", "index": 0 }]]
+    },
+    "Is Complete?": {
+      "main": [
+        [{ "node": "Fetch Active Pentesters", "type": "main", "index": 0 }],
+        [{ "node": "Is Methodology Step?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is Methodology Step?": {
+      "main": [
+        [{ "node": "Save Session for Methodology", "type": "main", "index": 0 }],
+        [{ "node": "Save Session State", "type": "main", "index": 0 }]
+      ]
+    },
+    "Save Session for Methodology": {
+      "main": [[{ "node": "Ask Methodology (New Project)", "type": "main", "index": 0 }]]
+    },
+    "Save Session State": {
+      "main": [[{ "node": "Ask Next Question", "type": "main", "index": 0 }]]
+    },
+    "Fetch Active Pentesters": {
+      "main": [[{ "node": "Build Notion Payload", "type": "main", "index": 0 }]]
+    },
+    "Build Notion Payload": {
+      "main": [[{ "node": "Create Notion Project Record", "type": "main", "index": 0 }]]
+    },
+    "Create Notion Project Record": {
+      "main": [[{ "node": "Clear Session After Create", "type": "main", "index": 0 }]]
+    },
+    "Clear Session After Create": {
+      "main": [[{ "node": "Build Confirmation Message", "type": "main", "index": 0 }]]
+    },
+    "Build Confirmation Message": {
+      "main": [[{ "node": "Send Confirmation", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "errorWorkflow": "{{ VAPT_ERROR_HANDLER_ID }}"
+  },
+  "staticData": null,
+  "tags": [{ "name": "vapt" }, { "name": "bot-a" }, { "name": "new-project" }],
+  "pinData": {},
+  "versionId": "f6000001-0000-0000-0000-000000000099",
+  "meta": { "templateCredsSetupCompleted": true, "instanceId": "{{ N8N_INSTANCE_ID }}" }
+}

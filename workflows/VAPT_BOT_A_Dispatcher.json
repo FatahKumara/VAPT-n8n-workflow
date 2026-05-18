@@ -1,0 +1,293 @@
+{
+  "name": "VAPT_BOT_A_Dispatcher",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message", "callback_query"],
+        "additionalFields": {}
+      },
+      "id": "c3000001-0000-0000-0000-000000000001",
+      "name": "Telegram Trigger Bot A",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0],
+      "webhookId": "vapt-bot-a-webhook-001",
+      "credentials": {
+        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst message = body.message || body.edited_message;\nconst cbq = body.callback_query;\n\nlet chatId, userId, text, callbackData, firstName;\n\nif (cbq) {\n  chatId = cbq.message.chat.id;\n  userId = cbq.from.id;\n  text = null;\n  callbackData = cbq.data;\n  firstName = cbq.from.first_name || 'PM';\n} else if (message) {\n  chatId = message.chat.id;\n  userId = message.from.id;\n  text = message.text || '';\n  callbackData = null;\n  firstName = message.from.first_name || 'PM';\n} else {\n  return [];\n}\n\nconst command = text && text.startsWith('/') ? text.split(' ')[0].split('@')[0].toLowerCase() : null;\n\nreturn [{ json: { chatId, userId: String(userId), text, callbackData, firstName, command } }];"
+      },
+      "id": "c3000001-0000-0000-0000-000000000002",
+      "name": "Parse Incoming Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.userId }}",
+              "rightValue": "={{ $vars.PM_TELEGRAM_USER_ID }}",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "c3000001-0000-0000-0000-000000000003",
+      "name": "Is PM User?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [500, 0]
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "⛔ <b>Akses Ditolak</b>\n\nBot ini hanya dapat digunakan oleh Project Manager yang terdaftar.",
+        "additionalFields": { "parse_mode": "HTML" }
+      },
+      "id": "c3000001-0000-0000-0000-000000000004",
+      "name": "Send Access Denied",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [750, 150],
+      "credentials": {
+        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "key": "=vapt:session:{{ $json.chatId }}"
+      },
+      "id": "c3000001-0000-0000-0000-000000000005",
+      "name": "Get Session State",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [750, -150],
+      "credentials": {
+        "redis": { "id": "{{ REDIS_CRED }}", "name": "Redis VAPT" }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const incoming = $('Parse Incoming Message').first().json;\nconst sessionRaw = $input.first().json.value || null;\nlet session = null;\ntry { session = sessionRaw ? JSON.parse(sessionRaw) : null; } catch(e) { session = null; }\n\nconst command = incoming.command;\nconst callbackData = incoming.callbackData;\nconst sessionStep = session?.step || null;\nconst sessionCommand = session?.command || null;\n\n// Determine routing key\nlet route;\nif (callbackData) {\n  if (callbackData.startsWith('sow:') || callbackData.startsWith('roe:')) route = 'a1_callback';\n  else if (callbackData.startsWith('proposal:')) route = 'a2_callback';\n  else if (callbackData.startsWith('np:')) route = 'a3_session';\n  else if (callbackData.startsWith('phase:') || callbackData.startsWith('proj:')) route = 'a4_callback';\n  else route = 'unknown_callback';\n} else if (command === '/generate_sow' || command === '/generate_roe') {\n  route = 'a1';\n} else if (command === '/generate_proposal') {\n  route = 'a2';\n} else if (command === '/new_project') {\n  route = 'a3_init';\n} else if (command === '/update_phase') {\n  route = 'a4';\n} else if (command === '/summary') {\n  route = 'a5';\n} else if (command === '/help' || command === '/start') {\n  route = 'help';\n} else if (sessionStep && sessionCommand === '/new_project') {\n  route = 'a3_session';\n} else {\n  route = 'unknown';\n}\n\nreturn [{ json: { ...incoming, session, route } }];"
+      },
+      "id": "c3000001-0000-0000-0000-000000000006",
+      "name": "Resolve Session & Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, -150]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "a1", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "a1" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "a1_callback", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "a1_cb" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "a2", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "a2" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "a3_init", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "a3_init" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "a3_session", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "a3_session" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "a4", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "a4" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "a4_callback", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "a4_cb" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "a5", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "a5" },
+            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "help", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "help" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c3000001-0000-0000-0000-000000000007",
+      "name": "Route by Command",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1250, -150]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_A1_GENERATE_DOCUMENTS }}",
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "c3000001-0000-0000-0000-000000000008",
+      "name": "Call A1 Generate Documents",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1500, -450]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_A1_GENERATE_DOCUMENTS }}",
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "c3000001-0000-0000-0000-000000000009",
+      "name": "Call A1 Callback Handler",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1500, -300]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_A2_GENERATE_PROPOSAL }}",
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "c3000001-0000-0000-0000-000000000010",
+      "name": "Call A2 Generate Proposal",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1500, -150]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_A3_NEW_PROJECT }}",
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "c3000001-0000-0000-0000-000000000011",
+      "name": "Call A3 Init New Project",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1500, 0]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_A3_NEW_PROJECT }}",
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "c3000001-0000-0000-0000-000000000012",
+      "name": "Call A3 Session Handler",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1500, 150]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_A4_UPDATE_PHASE }}",
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "c3000001-0000-0000-0000-000000000013",
+      "name": "Call A4 Update Phase",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1500, 300]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_A4_UPDATE_PHASE }}",
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "c3000001-0000-0000-0000-000000000014",
+      "name": "Call A4 Callback Handler",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1500, 450]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_A5_PM_SUMMARY }}",
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "c3000001-0000-0000-0000-000000000015",
+      "name": "Call A5 PM Summary",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1500, 600]
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "👋 Halo <b>{{ $json.firstName }}</b>!\n\n🤖 <b>VAPT PM Assistant Bot</b>\n\n<b>Perintah yang tersedia:</b>\n\n📝 /generate_sow - Generate Statement of Work\n📋 /generate_roe - Generate Rules of Engagement\n💼 /generate_proposal - Generate Proposal Proyek\n🆕 /new_project - Input Proyek Baru\n🔄 /update_phase - Update Fase Proyek\n📊 /summary - Dashboard Ringkasan Proyek\n\n<i>Ketik salah satu perintah untuk memulai.</i>",
+        "additionalFields": { "parse_mode": "HTML" }
+      },
+      "id": "c3000001-0000-0000-0000-000000000016",
+      "name": "Send Help Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1500, 750],
+      "credentials": {
+        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "❓ Perintah tidak dikenali.\n\nKetik /help untuk melihat daftar perintah yang tersedia.",
+        "additionalFields": { "parse_mode": "HTML" }
+      },
+      "id": "c3000001-0000-0000-0000-000000000017",
+      "name": "Send Unknown Command",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1500, 900],
+      "credentials": {
+        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## BOT A — PM Personal Assistant Dispatcher\n\nWorkflow utama yang menerima SEMUA pesan dari Bot A.\n\n**Autentikasi:** Cek userId vs PM_TELEGRAM_USER_ID (n8n Variable)\n**Session:** Redis key `vapt:session:{chatId}` → routing conversational state\n\n**Routing Map:**\n- /generate_sow, /generate_roe → WF A1\n- /generate_proposal → WF A2\n- /new_project → WF A3\n- /update_phase → WF A4\n- /summary → WF A5\n\n**n8n Variables yang dibutuhkan:**\n- PM_TELEGRAM_USER_ID\n- WF_ID_A1..A5 (workflow IDs setelah import)",
+        "height": 300,
+        "width": 500
+      },
+      "id": "c3000001-0000-0000-0000-000000000018",
+      "name": "Sticky Note - Architecture",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -350]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger Bot A": {
+      "main": [[{ "node": "Parse Incoming Message", "type": "main", "index": 0 }]]
+    },
+    "Parse Incoming Message": {
+      "main": [[{ "node": "Is PM User?", "type": "main", "index": 0 }]]
+    },
+    "Is PM User?": {
+      "main": [
+        [{ "node": "Get Session State", "type": "main", "index": 0 }],
+        [{ "node": "Send Access Denied", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Session State": {
+      "main": [[{ "node": "Resolve Session & Route", "type": "main", "index": 0 }]]
+    },
+    "Resolve Session & Route": {
+      "main": [[{ "node": "Route by Command", "type": "main", "index": 0 }]]
+    },
+    "Route by Command": {
+      "main": [
+        [{ "node": "Call A1 Generate Documents", "type": "main", "index": 0 }],
+        [{ "node": "Call A1 Callback Handler", "type": "main", "index": 0 }],
+        [{ "node": "Call A2 Generate Proposal", "type": "main", "index": 0 }],
+        [{ "node": "Call A3 Init New Project", "type": "main", "index": 0 }],
+        [{ "node": "Call A3 Session Handler", "type": "main", "index": 0 }],
+        [{ "node": "Call A4 Update Phase", "type": "main", "index": 0 }],
+        [{ "node": "Call A4 Callback Handler", "type": "main", "index": 0 }],
+        [{ "node": "Call A5 PM Summary", "type": "main", "index": 0 }],
+        [{ "node": "Send Help Message", "type": "main", "index": 0 }],
+        [{ "node": "Send Unknown Command", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "errorWorkflow": "{{ VAPT_ERROR_HANDLER_ID }}"
+  },
+  "staticData": null,
+  "tags": [{ "name": "vapt" }, { "name": "bot-a" }, { "name": "dispatcher" }],
+  "pinData": {},
+  "versionId": "c3000001-0000-0000-0000-000000000099",
+  "meta": { "templateCredsSetupCompleted": true, "instanceId": "{{ N8N_INSTANCE_ID }}" }
+}

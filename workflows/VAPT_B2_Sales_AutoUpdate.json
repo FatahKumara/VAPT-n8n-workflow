@@ -1,0 +1,80 @@
+{
+  "name": "VAPT_B2_Sales_AutoUpdate",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 1 * * *" },
+            { "field": "cronExpression", "expression": "0 10 * * *" }
+          ]
+        }
+      },
+      "id": "k1000001-0000-0000-0000-000000000001",
+      "name": "Schedule Trigger (08:00 & 17:00 WIB)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "notes": "08:00 WIB = 01:00 UTC | 17:00 WIB = 10:00 UTC"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const now = new Date();\n// 10:00 UTC = 17:00 WIB (evening)\nconst isEvening = now.getUTCHours() >= 10;\nconst mode = isEvening ? 'evening' : 'morning';\nreturn [{ json: { summaryMode: mode, target_chat_id: $vars.SALES_GROUP_CHAT_ID } }];"
+      },
+      "id": "k1000001-0000-0000-0000-000000000002",
+      "name": "Detect Morning or Evening",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 0]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_SHARED_SUMMARY }}",
+        "fields": {
+          "values": [
+            { "name": "target_chat_id", "stringValue": "={{ $json.target_chat_id }}" },
+            { "name": "summary_mode", "stringValue": "={{ $json.summaryMode }}" }
+          ]
+        },
+        "options": { "waitForSubWorkflow": false }
+      },
+      "id": "k1000001-0000-0000-0000-000000000003",
+      "name": "Call Summary Generator",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [500, 0]
+    },
+    {
+      "parameters": {
+        "content": "## VAPT B2 — Sales & Admin Auto-Update\n\n**Schedule:**\n- 08:00 WIB (01:00 UTC) → Morning full daily summary\n- 17:00 WIB (10:00 UTC) → Evening EOD progress update\n\nKeduanya menggunakan Shared Summary Generator\ndengan parameter `summary_mode` berbeda:\n- morning → full summary\n- evening → EOD update singkat\n\n**Target:** SALES_GROUP_CHAT_ID",
+        "height": 180,
+        "width": 450
+      },
+      "id": "k1000001-0000-0000-0000-000000000004",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -250]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (08:00 & 17:00 WIB)": {
+      "main": [[{ "node": "Detect Morning or Evening", "type": "main", "index": 0 }]]
+    },
+    "Detect Morning or Evening": {
+      "main": [[{ "node": "Call Summary Generator", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "errorWorkflow": "{{ VAPT_ERROR_HANDLER_ID }}"
+  },
+  "staticData": null,
+  "tags": [{ "name": "vapt" }, { "name": "bot-b" }, { "name": "scheduled" }],
+  "pinData": {},
+  "versionId": "k1000001-0000-0000-0000-000000000099",
+  "meta": { "templateCredsSetupCompleted": true, "instanceId": "{{ N8N_INSTANCE_ID }}" }
+}
