@@ -3,17 +3,26 @@
   "nodes": [
     {
       "parameters": {
-        "updates": ["message", "callback_query"],
+        "updates": [
+          "message",
+          "callback_query"
+        ],
         "additionalFields": {}
       },
       "id": "l2000001-0000-0000-0000-000000000001",
       "name": "Telegram Trigger Bot C",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
-      "position": [0, 0],
+      "position": [
+        0,
+        0
+      ],
       "webhookId": "vapt-bot-c-webhook-001",
       "credentials": {
-        "telegramApi": { "id": "{{ TELEGRAM_BOT_C_CRED }}", "name": "Telegram Bot C - Pentester Group" }
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_C_CRED }}",
+          "name": "Telegram Bot C - Pentester Group"
+        }
       }
     },
     {
@@ -25,7 +34,10 @@
       "name": "Parse Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [250, 0]
+      "position": [
+        250,
+        0
+      ]
     },
     {
       "parameters": {
@@ -34,7 +46,10 @@
             {
               "leftValue": "={{ $json.isAllowedGroup }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true" }
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
             }
           ]
         }
@@ -43,19 +58,38 @@
       "name": "Is Allowed Group?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [500, 0]
+      "position": [
+        500,
+        0
+      ]
     },
     {
       "parameters": {
-        "operation": "get",
-        "key": "=vapt:session:{{ $json.userId }}"
+        "workflowId": "={{ $vars.WF_ID_SESSION_MANAGER }}",
+        "fields": {
+          "values": [
+            {
+              "name": "action",
+              "stringValue": "get"
+            },
+            {
+              "name": "session_key",
+              "stringValue": "={{ $json.userId }}"
+            }
+          ]
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
       },
       "id": "l2000001-0000-0000-0000-000000000004",
       "name": "Get User Session",
-      "type": "n8n-nodes-base.redis",
-      "typeVersion": 1,
-      "position": [750, -150],
-      "credentials": { "redis": { "id": "{{ REDIS_CRED }}", "name": "Redis VAPT" } },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        750,
+        -150
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -67,19 +101,112 @@
       "name": "Resolve Session & Route",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1000, -150]
+      "position": [
+        1000,
+        -150
+      ]
     },
     {
       "parameters": {
         "mode": "rules",
         "rules": {
           "values": [
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "c1_summary", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "summary" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "c3_init", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "c3_init" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "c3_session", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "c3_session" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "c4_init", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "c4_init" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "c4_session", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "c4_session" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.route }}", "rightValue": "help", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "help" }
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "c1_summary",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "summary"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "c3_init",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "c3_init"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "c3_session",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "c3_session"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "c4_init",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "c4_init"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "c4_session",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "c4_session"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "help",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "help"
+            }
           ]
         },
         "options": {}
@@ -88,83 +215,125 @@
       "name": "Route by Command",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
-      "position": [1250, -150]
+      "position": [
+        1250,
+        -150
+      ]
     },
     {
       "parameters": {
         "workflowId": "={{ $vars.WF_ID_SHARED_SUMMARY }}",
         "fields": {
           "values": [
-            { "name": "target_chat_id", "stringValue": "={{ $json.chatId }}" },
-            { "name": "summary_mode", "stringValue": "pentester_ondemand" }
+            {
+              "name": "target_chat_id",
+              "stringValue": "={{ $json.chatId }}"
+            },
+            {
+              "name": "summary_mode",
+              "stringValue": "pentester_ondemand"
+            }
           ]
         },
-        "options": { "waitForSubWorkflow": false }
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "l2000001-0000-0000-0000-000000000007",
       "name": "Call C1 Summary",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1500, -450]
+      "position": [
+        1500,
+        -450
+      ]
     },
     {
       "parameters": {
         "workflowId": "={{ $vars.WF_ID_C3_DAILY_ACTIVITY }}",
-        "options": { "waitForSubWorkflow": false }
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "l2000001-0000-0000-0000-000000000008",
       "name": "Call C3 Init Activity",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1500, -300]
+      "position": [
+        1500,
+        -300
+      ]
     },
     {
       "parameters": {
         "workflowId": "={{ $vars.WF_ID_C3_DAILY_ACTIVITY }}",
-        "options": { "waitForSubWorkflow": false }
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "l2000001-0000-0000-0000-000000000009",
       "name": "Call C3 Session Handler",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1500, -150]
+      "position": [
+        1500,
+        -150
+      ]
     },
     {
       "parameters": {
         "workflowId": "={{ $vars.WF_ID_C4_VULN_UPDATE }}",
-        "options": { "waitForSubWorkflow": false }
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "l2000001-0000-0000-0000-000000000010",
       "name": "Call C4 Init Vuln",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1500, 0]
+      "position": [
+        1500,
+        0
+      ]
     },
     {
       "parameters": {
         "workflowId": "={{ $vars.WF_ID_C4_VULN_UPDATE }}",
-        "options": { "waitForSubWorkflow": false }
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "l2000001-0000-0000-0000-000000000011",
       "name": "Call C4 Session Handler",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1500, 150]
+      "position": [
+        1500,
+        150
+      ]
     },
     {
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.chatId }}",
         "text": "🔐 <b>VAPT Pentester Group Bot</b>\n\n<b>Perintah yang tersedia:</b>\n\n📊 /summary - Ringkasan status proyek\n📝 /update_activity - Log aktivitas harian\n🐛 /add_vuln - Tambah temuan vulnerability\n\n<i>Gunakan perintah di atas untuk berinteraksi dengan sistem.</i>",
-        "additionalFields": { "parse_mode": "HTML" }
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
       },
       "id": "l2000001-0000-0000-0000-000000000012",
       "name": "Send Help",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1500, 300],
+      "position": [
+        1500,
+        300
+      ],
       "credentials": {
-        "telegramApi": { "id": "{{ TELEGRAM_BOT_C_CRED }}", "name": "Telegram Bot C - Pentester Group" }
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_C_CRED }}",
+          "name": "Telegram Bot C - Pentester Group"
+        }
       }
     },
     {
@@ -177,35 +346,112 @@
       "name": "Sticky Note - Overview",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [0, -310]
+      "position": [
+        0,
+        -310
+      ]
     }
   ],
   "connections": {
     "Telegram Trigger Bot C": {
-      "main": [[{ "node": "Parse Message", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Parse Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse Message": {
-      "main": [[{ "node": "Is Allowed Group?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Is Allowed Group?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Is Allowed Group?": {
       "main": [
-        [{ "node": "Get User Session", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Get User Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Get User Session": {
-      "main": [[{ "node": "Resolve Session & Route", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Resolve Session & Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Resolve Session & Route": {
-      "main": [[{ "node": "Route by Command", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Route by Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Route by Command": {
       "main": [
-        [{ "node": "Call C1 Summary", "type": "main", "index": 0 }],
-        [{ "node": "Call C3 Init Activity", "type": "main", "index": 0 }],
-        [{ "node": "Call C3 Session Handler", "type": "main", "index": 0 }],
-        [{ "node": "Call C4 Init Vuln", "type": "main", "index": 0 }],
-        [{ "node": "Call C4 Session Handler", "type": "main", "index": 0 }],
-        [{ "node": "Send Help", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Call C1 Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call C3 Init Activity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call C3 Session Handler",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call C4 Init Vuln",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call C4 Session Handler",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Help",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -216,8 +462,21 @@
     "errorWorkflow": "{{ VAPT_ERROR_HANDLER_ID }}"
   },
   "staticData": null,
-  "tags": [{ "name": "vapt" }, { "name": "bot-c" }, { "name": "dispatcher" }],
+  "tags": [
+    {
+      "name": "vapt"
+    },
+    {
+      "name": "bot-c"
+    },
+    {
+      "name": "dispatcher"
+    }
+  ],
   "pinData": {},
   "versionId": "l2000001-0000-0000-0000-000000000099",
-  "meta": { "templateCredsSetupCompleted": true, "instanceId": "{{ N8N_INSTANCE_ID }}" }
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "{{ N8N_INSTANCE_ID }}"
+  }
 }

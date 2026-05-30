@@ -1,0 +1,547 @@
+{
+  "name": "VAPT_Session_Manager",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "action",
+              "type": "string"
+            },
+            {
+              "name": "session_key",
+              "type": "string"
+            },
+            {
+              "name": "session_data",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "sm000001-0000-0000-0000-000000000001",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "get"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "set",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "set"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "del",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "del"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sm000001-0000-0000-0000-000000000002",
+      "name": "Route by Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        250,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": "={{ $vars.NOTION_DB8_SESSION_STORE }}",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "session_key",
+              "condition": "equals",
+              "value": "={{ $json.session_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sm000001-0000-0000-0000-000000000003",
+      "name": "GET - Query Session",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        500,
+        -250
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "{{ NOTION_CRED }}",
+          "name": "Notion API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nconst trigger = $('Execute Workflow Trigger').first().json;\nif (!items || items.length === 0 || !items[0].json.id) {\n  return [{ json: { value: null } }];\n}\nconst page = items[0].json;\nconst props = page.properties || {};\nconst sessionDataProp = props.session_data;\nlet value = null;\nif (sessionDataProp) {\n  if (sessionDataProp.rich_text) {\n    value = sessionDataProp.rich_text.map(t => t.plain_text || '').join('');\n  }\n}\nif (value === '') value = null;\nreturn [{ json: { value } }];"
+      },
+      "id": "sm000001-0000-0000-0000-000000000004",
+      "name": "GET - Extract Value",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        -250
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": "={{ $vars.NOTION_DB8_SESSION_STORE }}",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "session_key",
+              "condition": "equals",
+              "value": "={{ $json.session_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sm000001-0000-0000-0000-000000000005",
+      "name": "SET - Query Session",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        500,
+        0
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "{{ NOTION_CRED }}",
+          "name": "Notion API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nconst trigger = $('Execute Workflow Trigger').first().json;\nconst exists = items && items.length > 0 && items[0].json.id;\nconst pageId = exists ? items[0].json.id : null;\nreturn [{ json: {\n  session_key: trigger.session_key,\n  session_data: trigger.session_data || '',\n  pageId,\n  exists: !!exists\n} }];"
+      },
+      "id": "sm000001-0000-0000-0000-000000000006",
+      "name": "SET - Check Exists",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ]
+        }
+      },
+      "id": "sm000001-0000-0000-0000-000000000007",
+      "name": "SET - Page Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "page",
+        "operation": "update",
+        "pageId": "={{ $json.pageId }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "session_data",
+              "type": "rich_text",
+              "textContent": "={{ $json.session_data }}"
+            }
+          ]
+        }
+      },
+      "id": "sm000001-0000-0000-0000-000000000008",
+      "name": "SET - Update Page",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1250,
+        -100
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "{{ NOTION_CRED }}",
+          "name": "Notion API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "create",
+        "databaseId": "={{ $vars.NOTION_DB8_SESSION_STORE }}",
+        "title": "={{ $json.session_key }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "session_data",
+              "type": "rich_text",
+              "textContent": "={{ $json.session_data }}"
+            }
+          ]
+        }
+      },
+      "id": "sm000001-0000-0000-0000-000000000009",
+      "name": "SET - Create Page",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1250,
+        100
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "{{ NOTION_CRED }}",
+          "name": "Notion API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": "={{ $vars.NOTION_DB8_SESSION_STORE }}",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "session_key",
+              "condition": "equals",
+              "value": "={{ $json.session_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sm000001-0000-0000-0000-000000000010",
+      "name": "DEL - Query Session",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        500,
+        250
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "{{ NOTION_CRED }}",
+          "name": "Notion API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nconst exists = items && items.length > 0 && items[0].json.id;\nconst pageId = exists ? items[0].json.id : null;\nreturn [{ json: { pageId, exists: !!exists } }];"
+      },
+      "id": "sm000001-0000-0000-0000-000000000011",
+      "name": "DEL - Get Page ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ]
+        }
+      },
+      "id": "sm000001-0000-0000-0000-000000000012",
+      "name": "DEL - Page Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "page",
+        "operation": "update",
+        "pageId": "={{ $json.pageId }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "session_data",
+              "type": "rich_text",
+              "textContent": ""
+            }
+          ]
+        }
+      },
+      "id": "sm000001-0000-0000-0000-000000000013",
+      "name": "DEL - Clear Session Data",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1250,
+        250
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "{{ NOTION_CRED }}",
+          "name": "Notion API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## VAPT Session Manager\n\n**Sub-workflow** untuk mengelola state sesi percakapan Telegram tanpa Redis.\nMenggunakan Notion DB-8 sebagai session store.\n\n**Input (via Execute Workflow Trigger):**\n- `action` — `get` | `set` | `del`\n- `session_key` — ID sesi (chatId atau userId)\n- `session_data` — JSON string data sesi (hanya untuk `set`)\n\n**Output (GET):** `{ value: \"<json_string>\" | null }`\n\n**DB-8 Schema:**\n- `session_key` (Title) — kunci sesi\n- `session_data` (Rich Text) — data JSON sesi\n\n**n8n Variables yang dibutuhkan:**\n- `NOTION_DB8_SESSION_STORE` — ID database Notion DB-8\n- `WF_ID_SESSION_MANAGER` — ID workflow ini (setelah import)",
+        "height": 320,
+        "width": 520
+      },
+      "id": "sm000001-0000-0000-0000-000000000014",
+      "name": "Sticky Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -400
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Route by Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Action": {
+      "main": [
+        [
+          {
+            "node": "GET - Query Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SET - Query Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "DEL - Query Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET - Query Session": {
+      "main": [
+        [
+          {
+            "node": "GET - Extract Value",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET - Query Session": {
+      "main": [
+        [
+          {
+            "node": "SET - Check Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET - Check Exists": {
+      "main": [
+        [
+          {
+            "node": "SET - Page Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET - Page Exists?": {
+      "main": [
+        [
+          {
+            "node": "SET - Update Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SET - Create Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DEL - Query Session": {
+      "main": [
+        [
+          {
+            "node": "DEL - Get Page ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DEL - Get Page ID": {
+      "main": [
+        [
+          {
+            "node": "DEL - Page Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DEL - Page Exists?": {
+      "main": [
+        [
+          {
+            "node": "DEL - Clear Session Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "errorWorkflow": "{{ VAPT_ERROR_HANDLER_ID }}"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "vapt"
+    },
+    {
+      "name": "session-manager"
+    }
+  ],
+  "pinData": {},
+  "versionId": "sm000001-0000-0000-0000-000000000099",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "{{ N8N_INSTANCE_ID }}"
+  }
+}

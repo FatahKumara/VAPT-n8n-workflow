@@ -1,13 +1,15 @@
 # VAPT Workflow System — Setup Guide
 > n8n Version: 1.x+ | Platform: Self-hosted | Model: claude-sonnet-4-20250514
+> **Versi ini tidak memerlukan Redis** — session state dikelola via Notion DB-8.
 
 ---
 
-## 📁 Daftar File Workflow (17 file)
+## 📁 Daftar File Workflow (18 file)
 
 | File | Tipe | Deskripsi |
 |------|------|-----------|
 | `VAPT_Error_Handler.json` | Global | Error handler untuk semua workflow |
+| `VAPT_Session_Manager.json` | Sub-WF | **Session state manager** (pengganti Redis, pakai Notion DB-8) |
 | `VAPT_Shared_Summary_Generator.json` | Sub-WF | Shared summary generator (dipanggil A5, B1, B2, C1, C2) |
 | `VAPT_BOT_A_Dispatcher.json` | Dispatcher | Bot A master handler |
 | `VAPT_A1_Generate_Documents.json` | Sub-WF | Generate SOW & ROE |
@@ -51,19 +53,14 @@ Buat credentials berikut di n8n Settings → Credentials:
 - **Type:** Notion API
 - **Name:** `Notion API`
 - **API Key:** Notion Internal Integration Token dari notion.so/my-integrations
-- **Pastikan** integration di-invite ke semua **7 database** (DB-1 s/d DB-7)
+- **Pastikan** integration di-invite ke semua **8 database** (DB-1 s/d DB-8)
 
 ### 1.5 Anthropic API
 - **Type:** Anthropic
 - **Name:** `Anthropic API`
 - **API Key:** Key dari console.anthropic.com
 
-### 1.6 Redis
-- **Type:** Redis
-- **Name:** `Redis VAPT`
-- **Host:** localhost (atau IP Redis server)
-- **Port:** 6379
-- **Password:** (jika ada)
+> **Tidak ada kredensial Redis** — versi ini tidak memerlukan Redis.
 
 ---
 
@@ -86,6 +83,7 @@ NOTION_DB4_DAILY_LOG       = [ID DB-4 Daily Activity Log]
 NOTION_DB5_VULN_LIST       = [ID DB-5 Vulnerability List]
 NOTION_DB6_WEEKLY_SUMMARY  = [ID DB-6 Weekly Summary Report]
 NOTION_DB7_ERROR_LOG       = [ID DB-7 Error Log]
+NOTION_DB8_SESSION_STORE   = [ID DB-8 Session Store — pengganti Redis]
 
 # Environment
 ENVIRONMENT                = production
@@ -102,10 +100,11 @@ Buka database di Notion → lihat URL:
 **Urutan import yang benar (penting!):**
 
 1. Import `VAPT_Error_Handler.json` → **catat Workflow ID-nya**
-2. Import `VAPT_Shared_Summary_Generator.json` → **catat Workflow ID-nya**
-3. Import semua Sub-Workflows (A1-A5, C3, C4) → **catat semua Workflow ID**
-4. Import Dispatcher workflows (BOT_A, BOT_B, BOT_C)
-5. Import Scheduled workflows (A6, B2, C2, C5, C6)
+2. Import `VAPT_Session_Manager.json` → **catat Workflow ID-nya** *(HARUS sebelum yang lain!)*
+3. Import `VAPT_Shared_Summary_Generator.json` → **catat Workflow ID-nya**
+4. Import semua Sub-Workflows (A1-A5, C3, C4) → **catat semua Workflow ID**
+5. Import Dispatcher workflows (BOT_A, BOT_B, BOT_C)
+6. Import Scheduled workflows (A6, B2, C2, C5, C6)
 
 **Cara import:** n8n UI → Workflows → Import from File
 
@@ -117,6 +116,7 @@ Setelah semua workflow di-import, tambahkan variable berikut dengan Workflow ID 
 
 ```
 VAPT_ERROR_HANDLER_ID      = [ID dari VAPT_Error_Handler]
+WF_ID_SESSION_MANAGER      = [ID dari VAPT_Session_Manager]  ← WAJIB diisi!
 WF_ID_SHARED_SUMMARY       = [ID dari VAPT_Shared_Summary_Generator]
 WF_ID_A1_GENERATE_DOCUMENTS = [ID dari VAPT_A1_Generate_Documents]
 WF_ID_A2_GENERATE_PROPOSAL  = [ID dari VAPT_A2_Generate_Proposal]
@@ -135,7 +135,7 @@ WF_ID_C4_VULN_UPDATE        = [ID dari VAPT_C4_Vulnerability_Update]
 > Redis hanya digunakan untuk temporary session state (conversational flow), bukan penyimpanan data permanen.
 
 ### Langkah Setup:
-1. Buat **7 database** di Notion dengan schema sesuai spesifikasi di bawah
+1. Buat **8 database** di Notion dengan schema sesuai spesifikasi di bawah
 2. Buat **Notion Internal Integration** di notion.so/my-integrations
 3. Invite integration ke setiap database (Settings → Connections → Add connections)
 
@@ -236,25 +236,38 @@ Database ini digunakan oleh `VAPT_Error_Handler` untuk mencatat semua error work
 
 > Setelah membuat DB-7, catat ID-nya dan set ke n8n Variable `NOTION_DB7_ERROR_LOG`.
 
+### DB-8: Session Store (Pengganti Redis)
+Database baru untuk menyimpan state percakapan multi-langkah.
+
+| Property | Type | Keterangan |
+|----------|------|------------|
+| `session_key` | **Title** | ID sesi (chatId atau userId Telegram) |
+| `session_data` | **Text** (Rich Text) | JSON string state percakapan |
+
+> Setelah membuat DB-8, catat ID-nya dan set ke n8n Variable `NOTION_DB8_SESSION_STORE`.
+> DB-8 dibiarkan kosong saat setup — data terisi otomatis saat user menggunakan bot.
+
 ---
 
-## 📦 Step 6: Setup Redis (State Machine)
+## 📦 Step 6: Session Manager (Pengganti Redis)
 
-Redis digunakan untuk conversational state management pada workflows:
-- A2 (Generate Proposal) — session key: `vapt:session:{chatId}`
-- A3 (New Project) — session key: `vapt:session:{chatId}`
-- A4 (Update Phase) — session key: `vapt:session:{chatId}`
-- C3 (Daily Activity) — session key: `vapt:session:{userId}`
-- C4 (Vulnerability Update) — session key: `vapt:session:{userId}`
+Sub-workflow `VAPT_Session_Manager` mengelola state percakapan menggunakan Notion DB-8.
 
-**TTL:** 3600 detik (1 jam) per session
+**Digunakan oleh:**
+- A2 (Generate Proposal) — session key: chatId
+- A3 (New Project) — session key: chatId
+- A4 (Update Phase) — session key: chatId
+- C3 (Daily Activity) — session key: userId
+- C4 (Vulnerability Update) — session key: userId
 
-> **Catatan:** Redis hanya digunakan untuk menyimpan **session state sementara** (TTL 1 jam) selama percakapan multi-langkah berlangsung. Data ini bukan data bisnis — semua data permanen tersimpan di Notion. Jika session expired sebelum user selesai, user cukup mengetik ulang command untuk memulai dari awal.
+**Cara kerja:**
+- **GET** (saat dispatcher butuh session): query DB-8 → return `{value: jsonString}`
+- **SET** (saat menyimpan state baru): upsert page di DB-8 (async, fire-and-forget)
+- **DEL** (saat session selesai): clear `session_data` di page DB-8
 
-### Setup dengan Docker:
-```bash
-docker run -d --name redis-vapt -p 6379:6379 redis:7-alpine
-```
+**Tidak ada konfigurasi tambahan** — cukup import workflow-nya dan set `WF_ID_SESSION_MANAGER`.
+
+> **Tip debug:** Buka DB-8 di Notion untuk melihat session state aktif setiap user. Hapus page secara manual jika perlu clear session yang stuck.
 
 ---
 
@@ -283,12 +296,13 @@ docker run -d --name redis-vapt -p 6379:6379 redis:7-alpine
 
 Aktifkan dalam urutan ini:
 1. `VAPT_Error_Handler` ← Aktifkan pertama
-2. `VAPT_Shared_Summary_Generator`
-3. Semua Sub-Workflows (A1-A5, C3, C4)
-4. `VAPT_BOT_A_Dispatcher` (aktifkan setelah semua sub-WF A siap)
-5. `VAPT_BOT_B_Dispatcher`
-6. `VAPT_BOT_C_Dispatcher` (aktifkan setelah C3, C4 siap)
-7. Semua Scheduled workflows (A6, B2, C2, C5, C6)
+2. `VAPT_Session_Manager` ← **WAJIB aktif sebelum bot digunakan!**
+3. `VAPT_Shared_Summary_Generator`
+4. Semua Sub-Workflows (A1-A5, C3, C4)
+5. `VAPT_BOT_A_Dispatcher` (aktifkan setelah semua sub-WF A siap)
+6. `VAPT_BOT_B_Dispatcher`
+7. `VAPT_BOT_C_Dispatcher` (aktifkan setelah C3, C4 siap)
+8. Semua Scheduled workflows (A6, B2, C2, C5, C6)
 
 ---
 
@@ -325,8 +339,9 @@ Manual trigger dari n8n UI:
 ## ❗ Troubleshooting
 
 ### Session tidak clear setelah submit
-- Cek Redis koneksi di n8n credentials
-- Manual clear: `redis-cli DEL vapt:session:*`
+- Buka Notion DB-8 → cari page dengan `session_key` = chatId/userId user
+- Hapus page atau kosongkan kolom `session_data` secara manual
+- Pastikan `VAPT_Session_Manager` dalam status Active di n8n
 
 ### Notion API error 429 (Rate Limited)
 - Notion limit: 3 req/detik
@@ -366,10 +381,13 @@ SCHEDULED JOBS (WIB = UTC+7)
    C5: Every Monday 09:00 → DB-1+DB-3 → Claude → DB-6 + Bot C
    C6: Every Friday 18:00 → DB-4+DB-5+DB-3 → Claude → DB-6 + Bot C
 
-STATE MACHINE (Redis TTL=3600s)
-   Key: vapt:session:{chatId|userId}
-   Value: { command, step, data }
+SESSION MANAGER (Notion DB-8, pengganti Redis)
+   Sub-WF: VAPT_Session_Manager
+   Key: session_key (chatId atau userId)
+   Value: session_data (JSON string)
    Used by: A2, A3, A4, C3, C4
+   GET → waitForSubWorkflow: true (sync)
+   SET/DEL → waitForSubWorkflow: false (async/fire-and-forget)
 
 ERROR HANDLING
    All workflows → errorWorkflow: VAPT_Error_Handler
@@ -379,7 +397,7 @@ DATA STORAGE (100% Notion)
    DB-1: Project List          DB-5: Vulnerability List
    DB-2: Pentester List        DB-6: Weekly Summary Report
    DB-3: Task List             DB-7: Error Log
-   DB-4: Daily Activity Log
+   DB-4: Daily Activity Log    DB-8: Session Store
 ```
 
 ---
@@ -391,9 +409,9 @@ DATA STORAGE (100% Notion)
 - [ ] PENTESTER_GROUP_CHAT_ID diset ke chat_id group yang benar
 - [ ] Semua pentesters sudah diregister di Notion DB-2 dengan telegram_user_id yang benar
 - [ ] NOTION_DB7_ERROR_LOG diset ke ID DB-7 Error Log
-- [ ] Notion integration di-invite ke semua 7 database (DB-1 s/d DB-7)
+- [ ] Notion integration di-invite ke semua 8 database (DB-1 s/d DB-8)
 - [ ] Notion integration hanya memiliki akses ke database yang dibutuhkan
-- [ ] Redis tidak exposed ke public internet
+- [ ] VAPT_Session_Manager aktif sebelum bot digunakan
 - [ ] n8n instance menggunakan HTTPS
 - [ ] API keys disimpan di n8n Credentials, bukan hardcoded
 

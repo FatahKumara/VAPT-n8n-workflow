@@ -9,11 +9,11 @@
 | # | Komponen | Platform | Jumlah Item |
 |---|----------|----------|-------------|
 | 1 | Telegram Bots | Telegram / @BotFather | 3 bot token + 4 chat ID |
-| 2 | Notion Integration | Notion | 1 API key + 7 database ID + 3 template page ID |
+| 2 | Notion Integration | Notion | 1 API key + 8 database ID + 3 template page ID |
 | 3 | Anthropic / Claude AI | Anthropic Console | 1 API key |
-| 4 | Redis | Self-hosted / Cloud | 1 connection config |
-| 5 | n8n Credentials | n8n Settings | 6 credential entries |
-| 6 | n8n Variables | n8n Settings | 25 variable entries |
+| 4 | Redis | ~~Self-hosted / Cloud~~ | **TIDAK DIPERLUKAN** (diganti Notion DB-8) |
+| 5 | n8n Credentials | n8n Settings | 5 credential entries (tanpa Redis) |
+| 6 | n8n Variables | n8n Settings | 27 variable entries |
 
 ---
 
@@ -166,6 +166,14 @@ Contoh: https://notion.so/myworkspace/a1b2c3d4e5f6...7890?v=...
 | DB-5 | Vulnerability List | `NOTION_DB5_VULN_LIST` | `________________________________` | ☐ | ☐ |
 | DB-6 | Weekly Summary Report | `NOTION_DB6_WEEKLY_SUMMARY` | `________________________________` | ☐ | ☐ |
 | DB-7 | Error Log | `NOTION_DB7_ERROR_LOG` | `________________________________` | ☐ | ☐ |
+| DB-8 | **Session Store** *(pengganti Redis)* | `NOTION_DB8_SESSION_STORE` | `________________________________` | ☐ | ☐ |
+
+**DB-8 Schema (Session Store) — buat database Notion baru dengan properti:**
+
+| Properti | Tipe | Keterangan |
+|----------|------|------------|
+| `session_key` | **Title** | ID sesi (chatId atau userId Telegram) |
+| `session_data` | **Text** (Rich Text) | JSON string state percakapan |
 
 **Cara invite integration ke database:**
 ```
@@ -220,42 +228,19 @@ Sebelum sistem dapat berjalan, data berikut harus sudah ada di Notion:
 
 ---
 
-## BAGIAN 4 — REDIS (Session State)
+## BAGIAN 4 — REDIS (TIDAK DIPERLUKAN)
 
-Redis digunakan **hanya** untuk menyimpan state sementara percakapan multi-langkah (TTL: 1 jam). Bukan untuk data permanen.
-
-### 4.1 Konfigurasi Redis
-
-| Parameter | Nilai | Status |
-|-----------|-------|--------|
-| **Host** | `localhost` atau IP server | ☐ |
-| **Port** | `6379` (default) | ☐ |
-| **Password** | *(kosong jika tidak ada)* | ☐ |
-| **Database Index** | `0` (default) | ☐ |
-
-**Setup cepat dengan Docker:**
-```bash
-docker run -d \
-  --name redis-vapt \
-  --restart unless-stopped \
-  -p 6379:6379 \
-  redis:7-alpine
-```
-
-**Setup dengan password (lebih aman):**
-```bash
-docker run -d \
-  --name redis-vapt \
-  --restart unless-stopped \
-  -p 6379:6379 \
-  redis:7-alpine redis-server --requirepass "password_anda"
-```
-
-**Test koneksi:**
-```bash
-redis-cli -h localhost -p 6379 ping
-# Response: PONG
-```
+> **Versi ini tidak menggunakan Redis.** Session state dikelola oleh sub-workflow `VAPT_Session_Manager` menggunakan Notion DB-8 sebagai backend. Tidak perlu instalasi atau konfigurasi Redis.
+>
+> **Keuntungan tanpa Redis:**
+> - Tidak perlu server Redis tambahan
+> - Session data tersimpan permanen di Notion (dapat diaudit)
+> - Lebih mudah di-debug (buka DB-8 di Notion untuk melihat state)
+>
+> **Konsekuensi:**
+> - SET/DEL session bersifat async (fire-and-forget) — data ditulis ke Notion setelah respons dikirim
+> - Latensi sedikit lebih tinggi vs Redis (Notion API ~200–500ms)
+> - Tidak ada TTL otomatis — session lama tidak terhapus otomatis (bersihkan manual jika diperlukan)
 
 ---
 
@@ -272,7 +257,8 @@ Daftarkan semua credential di: **n8n → Settings → Credentials → Add Creden
 | 3 | `Telegram Bot C - Pentester Group` | Telegram API | Bot Token (dari 1.1) | ☐ |
 | 4 | `Notion API` | Notion API | API Key (dari 2.1) | ☐ |
 | 5 | `Anthropic API` | Anthropic | API Key (dari 3.1) | ☐ |
-| 6 | `Redis VAPT` | Redis | Host, Port, Password (dari 4.1) | ☐ |
+
+> **Catatan:** Credential `Redis VAPT` **tidak lagi diperlukan** di versi ini.
 
 > **Penting:** Nama credential harus **sama persis** seperti di tabel, termasuk huruf kapital dan spasi, karena nama ini direferensikan langsung di semua workflow JSON.
 
@@ -302,6 +288,7 @@ Daftarkan semua variable di: **n8n → Settings → Variables → Add Variable**
 | `NOTION_DB5_VULN_LIST` | `________________________________` | Bagian 2.2 | ☐ |
 | `NOTION_DB6_WEEKLY_SUMMARY` | `________________________________` | Bagian 2.2 | ☐ |
 | `NOTION_DB7_ERROR_LOG` | `________________________________` | Bagian 2.2 | ☐ |
+| `NOTION_DB8_SESSION_STORE` | `________________________________` | Bagian 2.2 (DB-8) | ☐ |
 
 ### 6.2b Notion Template Page IDs
 
@@ -333,6 +320,7 @@ Dapatkan Workflow ID setelah import: buka workflow → lihat URL → `/workflow/
 | Variable Name | Nilai | Workflow File | Status |
 |--------------|-------|--------------|--------|
 | `VAPT_ERROR_HANDLER_ID` | `___________` | VAPT_Error_Handler.json | ☐ |
+| `WF_ID_SESSION_MANAGER` | `___________` | **VAPT_Session_Manager.json** *(import pertama!)* | ☐ |
 | `WF_ID_SHARED_SUMMARY` | `___________` | VAPT_Shared_Summary_Generator.json | ☐ |
 | `WF_ID_A1_GENERATE_DOCUMENTS` | `___________` | VAPT_A1_Generate_Documents.json | ☐ |
 | `WF_ID_A2_GENERATE_PROPOSAL` | `___________` | VAPT_A2_Generate_Proposal.json | ☐ |
@@ -353,51 +341,54 @@ FASE 1 — Persiapkan semua akun & token eksternal
   ☐ 1. Buat 3 Telegram Bot via @BotFather → catat 3 token
   ☐ 2. Dapatkan Telegram User ID milik PM → via @userinfobot
   ☐ 3. Buat Notion Integration → catat API key
-  ☐ 4. Buat 7 Notion Database → catat semua ID
-  ☐ 5. Invite Integration ke semua 7 database
+  ☐ 4. Buat 8 Notion Database → catat semua ID (termasuk DB-8 Session Store)
+  ☐ 5. Invite Integration ke semua 8 database
   ☐ 6. Buat Anthropic API key → catat
-  ☐ 7. Setup Redis → catat host/port/password
+  (Redis tidak diperlukan di versi ini)
 
 FASE 2 — Input data awal ke Notion
-  ☐ 8. Input data PM ke DB-2 (Pentester List) dengan telegram_user_id PM
-  ☐ 9. Input data semua pentester ke DB-2 dengan telegram_user_id masing-masing
+  ☐ 7. Input data PM ke DB-2 (Pentester List) dengan telegram_user_id PM
+  ☐ 8. Input data semua pentester ke DB-2 dengan telegram_user_id masing-masing
+  ☐ 9. DB-8 (Session Store) dibiarkan kosong — terisi otomatis saat digunakan
 
 FASE 3 — Setup n8n
-  ☐ 10. Buat 6 Credentials di n8n (Bagian 5.1)
+  ☐ 10. Buat 5 Credentials di n8n (Bagian 5.1) — tanpa Redis
   ☐ 11. Buat Variables Telegram IDs (Bagian 6.1)
-  ☐ 12. Buat Variables Notion DB IDs (Bagian 6.2)
+  ☐ 12. Buat Variables Notion DB IDs (Bagian 6.2) — termasuk NOTION_DB8_SESSION_STORE
   ☐ 13. Set ENVIRONMENT = production (Bagian 6.3)
 
 FASE 4 — Import & konfigurasi Workflows
   ☐ 14. Import VAPT_Error_Handler.json → catat Workflow ID
-  ☐ 15. Import VAPT_Shared_Summary_Generator.json → catat Workflow ID
-  ☐ 16. Import VAPT_A1_Generate_Documents.json → catat Workflow ID
-  ☐ 17. Import VAPT_A2_Generate_Proposal.json → catat Workflow ID
-  ☐ 18. Import VAPT_A3_New_Project.json → catat Workflow ID
-  ☐ 19. Import VAPT_A4_Update_Phase.json → catat Workflow ID
-  ☐ 20. Import VAPT_A5_PM_Summary.json → catat Workflow ID
-  ☐ 21. Import VAPT_C3_Daily_Activity.json → catat Workflow ID
-  ☐ 22. Import VAPT_C4_Vulnerability_Update.json → catat Workflow ID
-  ☐ 23. Import VAPT_BOT_A_Dispatcher.json
-  ☐ 24. Import VAPT_BOT_B_Dispatcher.json
-  ☐ 25. Import VAPT_BOT_C_Dispatcher.json
-  ☐ 26. Import VAPT_A6_PM_Reminder.json
-  ☐ 27. Import VAPT_B2_Sales_AutoUpdate.json
-  ☐ 28. Import VAPT_C2_Pentester_AutoUpdate.json
-  ☐ 29. Import VAPT_C5_Weekly_Plan.json
-  ☐ 30. Import VAPT_C6_Weekly_Recap.json
-  ☐ 31. Isi semua Workflow IDs di n8n Variables (Bagian 6.4)
-  ☐ 32. Update errorWorkflow ID di semua workflow ke ID Error Handler
+  ☐ 15. Import VAPT_Session_Manager.json → catat Workflow ID (PENTING: import sebelum yang lain!)
+  ☐ 16. Import VAPT_Shared_Summary_Generator.json → catat Workflow ID
+  ☐ 17. Import VAPT_A1_Generate_Documents.json → catat Workflow ID
+  ☐ 18. Import VAPT_A2_Generate_Proposal.json → catat Workflow ID
+  ☐ 19. Import VAPT_A3_New_Project.json → catat Workflow ID
+  ☐ 20. Import VAPT_A4_Update_Phase.json → catat Workflow ID
+  ☐ 21. Import VAPT_A5_PM_Summary.json → catat Workflow ID
+  ☐ 22. Import VAPT_C3_Daily_Activity.json → catat Workflow ID
+  ☐ 23. Import VAPT_C4_Vulnerability_Update.json → catat Workflow ID
+  ☐ 24. Import VAPT_BOT_A_Dispatcher.json
+  ☐ 25. Import VAPT_BOT_B_Dispatcher.json
+  ☐ 26. Import VAPT_BOT_C_Dispatcher.json
+  ☐ 27. Import VAPT_A6_PM_Reminder.json
+  ☐ 28. Import VAPT_B2_Sales_AutoUpdate.json
+  ☐ 29. Import VAPT_C2_Pentester_AutoUpdate.json
+  ☐ 30. Import VAPT_C5_Weekly_Plan.json
+  ☐ 31. Import VAPT_C6_Weekly_Recap.json
+  ☐ 32. Isi semua Workflow IDs di n8n Variables (Bagian 6.4) — termasuk WF_ID_SESSION_MANAGER
+  ☐ 33. Update errorWorkflow ID di semua workflow ke ID Error Handler
 
 FASE 5 — Aktivasi & Test
-  ☐ 33. Aktifkan VAPT_Error_Handler
-  ☐ 34. Aktifkan VAPT_Shared_Summary_Generator
-  ☐ 35. Aktifkan semua Sub-Workflows (A1–A5, C3, C4)
-  ☐ 36. Aktifkan Bot Dispatchers (A, B, C)
-  ☐ 37. Aktifkan Scheduled Workflows (A6, B2, C2, C5, C6)
-  ☐ 38. Test Bot A: kirim /start → /summary
-  ☐ 39. Test Bot C: kirim /update_activity
-  ☐ 40. Test manual trigger A6 → cek reminder dikirim
+  ☐ 34. Aktifkan VAPT_Error_Handler
+  ☐ 35. Aktifkan VAPT_Session_Manager (wajib aktif sebelum bot digunakan!)
+  ☐ 36. Aktifkan VAPT_Shared_Summary_Generator
+  ☐ 37. Aktifkan semua Sub-Workflows (A1–A5, C3, C4)
+  ☐ 38. Aktifkan Bot Dispatchers (A, B, C)
+  ☐ 39. Aktifkan Scheduled Workflows (A6, B2, C2, C5, C6)
+  ☐ 40. Test Bot A: kirim /start → /summary
+  ☐ 41. Test Bot C: kirim /update_activity → cek DB-8 di Notion (session harus tertulis)
+  ☐ 42. Test manual trigger A6 → cek reminder dikirim
 ```
 
 ---
@@ -431,20 +422,18 @@ DB-4 (Logs)    : ________________________________
 DB-5 (Vulns)   : ________________________________
 DB-6 (Weekly)  : ________________________________
 DB-7 (Errors)  : ________________________________
+DB-8 (Sessions): ________________________________
 
 ANTHROPIC
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 API Key        : sk-ant-___________________________
 
-REDIS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Host           : ___________
-Port           : 6379
-Password       : ___________
+REDIS: TIDAK DIPERLUKAN (diganti Notion DB-8)
 
 WORKFLOW IDs (diisi setelah import)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Error Handler  : ___________
+Session Manager: ___________
 Shared Summary : ___________
 A1 Documents   : ___________
 A2 Proposal    : ___________

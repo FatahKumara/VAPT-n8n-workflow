@@ -5,11 +5,26 @@
       "parameters": {
         "workflowInputs": {
           "values": [
-            { "name": "chatId", "type": "string" },
-            { "name": "callbackData", "type": "string" },
-            { "name": "session", "type": "object" },
-            { "name": "route", "type": "string" },
-            { "name": "text", "type": "string" }
+            {
+              "name": "chatId",
+              "type": "string"
+            },
+            {
+              "name": "callbackData",
+              "type": "string"
+            },
+            {
+              "name": "session",
+              "type": "object"
+            },
+            {
+              "name": "route",
+              "type": "string"
+            },
+            {
+              "name": "text",
+              "type": "string"
+            }
           ]
         }
       },
@@ -17,7 +32,10 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -26,7 +44,10 @@
             {
               "leftValue": "={{ $json.route }}",
               "rightValue": "a4",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ]
         }
@@ -35,7 +56,10 @@
       "name": "Is Initial Command?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [250, 0]
+      "position": [
+        250,
+        0
+      ]
     },
     {
       "parameters": {
@@ -49,9 +73,15 @@
       "name": "Fetch Active Projects",
       "type": "n8n-nodes-base.notion",
       "typeVersion": 2.2,
-      "position": [500, -200],
+      "position": [
+        500,
+        -200
+      ],
       "credentials": {
-        "notionApi": { "id": "{{ NOTION_CRED }}", "name": "Notion API" }
+        "notionApi": {
+          "id": "{{ NOTION_CRED }}",
+          "name": "Notion API"
+        }
       },
       "retryOnFail": true,
       "maxTries": 3,
@@ -66,7 +96,10 @@
       "name": "Build Project List",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [750, -200]
+      "position": [
+        750,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -82,9 +115,15 @@
       "name": "Send Project List",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1000, -200],
+      "position": [
+        1000,
+        -200
+      ],
       "credentials": {
-        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
       }
     },
     {
@@ -96,16 +135,64 @@
       "name": "Parse Callback Route",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [500, 150]
+      "position": [
+        500,
+        150
+      ]
     },
     {
       "parameters": {
         "mode": "rules",
         "rules": {
           "values": [
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "select_phase", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "show_phases" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "set_phase", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "ask_notes" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "save_notes", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "save_and_update" }
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "select_phase",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "show_phases"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "set_phase",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "ask_notes"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "save_notes",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "save_and_update"
+            }
           ]
         },
         "options": {}
@@ -114,7 +201,10 @@
       "name": "Route Callback Step",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
-      "position": [750, 150]
+      "position": [
+        750,
+        150
+      ]
     },
     {
       "parameters": {
@@ -130,25 +220,48 @@
       "name": "Show Phase Selection",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1000, 0],
+      "position": [
+        1000,
+        0
+      ],
       "credentials": {
-        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
       }
     },
     {
       "parameters": {
-        "operation": "set",
-        "key": "=vapt:session:{{ $json.chatId }}",
-        "value": "={{ JSON.stringify({ command: '/update_phase', step: 'waiting_notes', data: { projectId: $json.projectId, phase: $json.phase } }) }}",
-        "expire": true,
-        "seconds": 3600
+        "workflowId": "={{ $vars.WF_ID_SESSION_MANAGER }}",
+        "fields": {
+          "values": [
+            {
+              "name": "action",
+              "stringValue": "set"
+            },
+            {
+              "name": "session_key",
+              "stringValue": "={{ $json.chatId }}"
+            },
+            {
+              "name": "session_data",
+              "stringValue": "={{ JSON.stringify({ command: '/update_phase', step: 'waiting_notes', data: { projectId: $json.projectId, phase: $json.phase } }) }}"
+            }
+          ]
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "g7000001-0000-0000-0000-000000000009",
       "name": "Save Phase Selection to Session",
-      "type": "n8n-nodes-base.redis",
-      "typeVersion": 1,
-      "position": [1000, 150],
-      "credentials": { "redis": { "id": "{{ REDIS_CRED }}", "name": "Redis VAPT" } }
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1000,
+        150
+      ]
     },
     {
       "parameters": {
@@ -164,9 +277,15 @@
       "name": "Ask PM Notes",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1250, 150],
+      "position": [
+        1250,
+        150
+      ],
       "credentials": {
-        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
       }
     },
     {
@@ -178,7 +297,10 @@
       "name": "Build Update Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1000, 300]
+      "position": [
+        1000,
+        300
+      ]
     },
     {
       "parameters": {
@@ -193,9 +315,15 @@
       "name": "Update Notion Project Phase",
       "type": "n8n-nodes-base.notion",
       "typeVersion": 2.2,
-      "position": [1250, 300],
+      "position": [
+        1250,
+        300
+      ],
       "credentials": {
-        "notionApi": { "id": "{{ NOTION_CRED }}", "name": "Notion API" }
+        "notionApi": {
+          "id": "{{ NOTION_CRED }}",
+          "name": "Notion API"
+        }
       },
       "retryOnFail": true,
       "maxTries": 3,
@@ -203,15 +331,31 @@
     },
     {
       "parameters": {
-        "operation": "delete",
-        "key": "=vapt:session:{{ $('Build Update Payload').item.json.chatId }}"
+        "workflowId": "={{ $vars.WF_ID_SESSION_MANAGER }}",
+        "fields": {
+          "values": [
+            {
+              "name": "action",
+              "stringValue": "del"
+            },
+            {
+              "name": "session_key",
+              "stringValue": "={{ $('Build Update Payload').item.json.chatId }}"
+            }
+          ]
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "g7000001-0000-0000-0000-000000000013",
       "name": "Clear Session After Update",
-      "type": "n8n-nodes-base.redis",
-      "typeVersion": 1,
-      "position": [1500, 300],
-      "credentials": { "redis": { "id": "{{ REDIS_CRED }}", "name": "Redis VAPT" } },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1500,
+        300
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -219,15 +363,23 @@
         "operation": "sendMessage",
         "chatId": "={{ $('Build Update Payload').item.json.chatId }}",
         "text": "={{ '✅ <b>Fase Proyek Berhasil Diupdate!</b>\\n\\n📍 <b>Fase Baru:</b> ' + $('Build Update Payload').item.json.phase + '\\n📝 <b>Catatan PM:</b> ' + ($('Build Update Payload').item.json.notes || '(tidak ada)') + '\\n🕐 <b>Diupdate:</b> ' + new Date().toLocaleString(\\'id-ID\\', {timeZone:\\'Asia/Jakarta\\'}) + ' WIB\\n\\nData telah tersimpan di Notion.' }}",
-        "additionalFields": { "parse_mode": "HTML" }
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
       },
       "id": "g7000001-0000-0000-0000-000000000014",
       "name": "Send Update Confirmation",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1750, 300],
+      "position": [
+        1750,
+        300
+      ],
       "credentials": {
-        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
       }
     },
     {
@@ -240,46 +392,143 @@
       "name": "Sticky Note - Overview",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [0, -300]
+      "position": [
+        0,
+        -300
+      ]
     }
   ],
   "connections": {
     "Execute Workflow Trigger": {
-      "main": [[{ "node": "Is Initial Command?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Is Initial Command?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Is Initial Command?": {
       "main": [
-        [{ "node": "Fetch Active Projects", "type": "main", "index": 0 }],
-        [{ "node": "Parse Callback Route", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Fetch Active Projects",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Callback Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Fetch Active Projects": {
-      "main": [[{ "node": "Build Project List", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Build Project List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Build Project List": {
-      "main": [[{ "node": "Send Project List", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Send Project List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse Callback Route": {
-      "main": [[{ "node": "Route Callback Step", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Route Callback Step",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Route Callback Step": {
       "main": [
-        [{ "node": "Show Phase Selection", "type": "main", "index": 0 }],
-        [{ "node": "Save Phase Selection to Session", "type": "main", "index": 0 }],
-        [{ "node": "Build Update Payload", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Show Phase Selection",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Phase Selection to Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Update Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Save Phase Selection to Session": {
-      "main": [[{ "node": "Ask PM Notes", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Ask PM Notes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Build Update Payload": {
-      "main": [[{ "node": "Update Notion Project Phase", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Update Notion Project Phase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Update Notion Project Phase": {
-      "main": [[{ "node": "Clear Session After Update", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Clear Session After Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Clear Session After Update": {
-      "main": [[{ "node": "Send Update Confirmation", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Send Update Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -289,8 +538,21 @@
     "errorWorkflow": "{{ VAPT_ERROR_HANDLER_ID }}"
   },
   "staticData": null,
-  "tags": [{ "name": "vapt" }, { "name": "bot-a" }, { "name": "phase-update" }],
+  "tags": [
+    {
+      "name": "vapt"
+    },
+    {
+      "name": "bot-a"
+    },
+    {
+      "name": "phase-update"
+    }
+  ],
   "pinData": {},
   "versionId": "g7000001-0000-0000-0000-000000000099",
-  "meta": { "templateCredsSetupCompleted": true, "instanceId": "{{ N8N_INSTANCE_ID }}" }
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "{{ N8N_INSTANCE_ID }}"
+  }
 }

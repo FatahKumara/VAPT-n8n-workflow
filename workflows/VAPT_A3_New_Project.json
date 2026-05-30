@@ -5,12 +5,30 @@
       "parameters": {
         "workflowInputs": {
           "values": [
-            { "name": "chatId", "type": "string" },
-            { "name": "command", "type": "string" },
-            { "name": "callbackData", "type": "string" },
-            { "name": "session", "type": "object" },
-            { "name": "route", "type": "string" },
-            { "name": "text", "type": "string" }
+            {
+              "name": "chatId",
+              "type": "string"
+            },
+            {
+              "name": "command",
+              "type": "string"
+            },
+            {
+              "name": "callbackData",
+              "type": "string"
+            },
+            {
+              "name": "session",
+              "type": "object"
+            },
+            {
+              "name": "route",
+              "type": "string"
+            },
+            {
+              "name": "text",
+              "type": "string"
+            }
           ]
         }
       },
@@ -18,7 +36,10 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -27,7 +48,10 @@
             {
               "leftValue": "={{ $json.route }}",
               "rightValue": "a3_init",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ]
         }
@@ -36,22 +60,42 @@
       "name": "Is Init or Session?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [250, 0]
+      "position": [
+        250,
+        0
+      ]
     },
     {
       "parameters": {
-        "operation": "set",
-        "key": "=vapt:session:{{ $json.chatId }}",
-        "value": "={{ JSON.stringify({ command: '/new_project', step: 'waiting_project_name', data: {} }) }}",
-        "expire": true,
-        "seconds": 3600
+        "workflowId": "={{ $vars.WF_ID_SESSION_MANAGER }}",
+        "fields": {
+          "values": [
+            {
+              "name": "action",
+              "stringValue": "set"
+            },
+            {
+              "name": "session_key",
+              "stringValue": "={{ $json.chatId }}"
+            },
+            {
+              "name": "session_data",
+              "stringValue": "={{ JSON.stringify({ command: '/new_project', step: 'waiting_project_name', data: {} }) }}"
+            }
+          ]
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "f6000001-0000-0000-0000-000000000003",
       "name": "Init New Project Session",
-      "type": "n8n-nodes-base.redis",
-      "typeVersion": 1,
-      "position": [500, -200],
-      "credentials": { "redis": { "id": "{{ REDIS_CRED }}", "name": "Redis VAPT" } }
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        500,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -67,9 +111,15 @@
       "name": "Ask Project ID",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [750, -200],
+      "position": [
+        750,
+        -200
+      ],
       "credentials": {
-        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
       }
     },
     {
@@ -81,25 +131,208 @@
       "name": "Parse Session",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [500, 150]
+      "position": [
+        500,
+        150
+      ]
     },
     {
       "parameters": {
         "mode": "rules",
         "rules": {
           "values": [
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_project_name", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s1_project_name" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_client_name", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s2_client_name" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_objects", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s3_objects" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_methodology", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s4_methodology" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_pre_kickoff", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s5_date_pkof" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_kickoff", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s6_date_kof" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_initial_test", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s7_date_itest" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_initial_report", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s8_date_irep" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_presentation", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s9_date_pres" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_patching", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s10_date_patch" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_retest", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s11_date_retest" },
-            { "conditions": { "conditions": [{ "leftValue": "={{ $json.step }}", "rightValue": "waiting_date_retest_report", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": true, "outputKey": "s12_date_rreport" }
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_project_name",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "s1_project_name"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_client_name",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "s2_client_name"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_objects",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "s3_objects"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_methodology",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "s4_methodology"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_date_pre_kickoff",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "s5_date_pkof"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_date_kickoff",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "s6_date_kof"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_date_initial_test",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "s7_date_itest"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_date_initial_report",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "s8_date_irep"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_date_presentation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "s9_date_pres"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_date_patching",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "s10_date_patch"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_date_retest",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "s11_date_retest"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "waiting_date_retest_report",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "s12_date_rreport"
+            }
           ]
         },
         "options": {}
@@ -108,7 +341,10 @@
       "name": "Route by Step",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
-      "position": [750, 150]
+      "position": [
+        750,
+        150
+      ]
     },
     {
       "parameters": {
@@ -119,7 +355,10 @@
       "name": "Process Step & Advance",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1000, 150]
+      "position": [
+        1000,
+        150
+      ]
     },
     {
       "parameters": {
@@ -128,7 +367,10 @@
             {
               "leftValue": "={{ $json.nextStep }}",
               "rightValue": "COMPLETE",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ]
         }
@@ -137,7 +379,10 @@
       "name": "Is Complete?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1250, 150]
+      "position": [
+        1250,
+        150
+      ]
     },
     {
       "parameters": {
@@ -146,7 +391,10 @@
             {
               "leftValue": "={{ $json.nextStep }}",
               "rightValue": "waiting_methodology",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ]
         }
@@ -155,22 +403,42 @@
       "name": "Is Methodology Step?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1500, 0]
+      "position": [
+        1500,
+        0
+      ]
     },
     {
       "parameters": {
-        "operation": "set",
-        "key": "=vapt:session:{{ $json.chatId }}",
-        "value": "={{ JSON.stringify({ command: '/new_project', step: $json.nextStep, data: $json.data }) }}",
-        "expire": true,
-        "seconds": 3600
+        "workflowId": "={{ $vars.WF_ID_SESSION_MANAGER }}",
+        "fields": {
+          "values": [
+            {
+              "name": "action",
+              "stringValue": "set"
+            },
+            {
+              "name": "session_key",
+              "stringValue": "={{ $json.chatId }}"
+            },
+            {
+              "name": "session_data",
+              "stringValue": "={{ JSON.stringify({ command: '/new_project', step: $json.nextStep, data: $json.data }) }}"
+            }
+          ]
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "f6000001-0000-0000-0000-000000000010",
       "name": "Save Session State",
-      "type": "n8n-nodes-base.redis",
-      "typeVersion": 1,
-      "position": [1750, -150],
-      "credentials": { "redis": { "id": "{{ REDIS_CRED }}", "name": "Redis VAPT" } }
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1750,
+        -150
+      ]
     },
     {
       "parameters": {
@@ -186,25 +454,48 @@
       "name": "Ask Next Question",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [2000, -150],
+      "position": [
+        2000,
+        -150
+      ],
       "credentials": {
-        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
       }
     },
     {
       "parameters": {
-        "operation": "set",
-        "key": "=vapt:session:{{ $json.chatId }}",
-        "value": "={{ JSON.stringify({ command: '/new_project', step: 'waiting_methodology', data: $json.data }) }}",
-        "expire": true,
-        "seconds": 3600
+        "workflowId": "={{ $vars.WF_ID_SESSION_MANAGER }}",
+        "fields": {
+          "values": [
+            {
+              "name": "action",
+              "stringValue": "set"
+            },
+            {
+              "name": "session_key",
+              "stringValue": "={{ $json.chatId }}"
+            },
+            {
+              "name": "session_data",
+              "stringValue": "={{ JSON.stringify({ command: '/new_project', step: 'waiting_methodology', data: $json.data }) }}"
+            }
+          ]
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "f6000001-0000-0000-0000-000000000012",
       "name": "Save Session for Methodology",
-      "type": "n8n-nodes-base.redis",
-      "typeVersion": 1,
-      "position": [1750, 100],
-      "credentials": { "redis": { "id": "{{ REDIS_CRED }}", "name": "Redis VAPT" } }
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1750,
+        100
+      ]
     },
     {
       "parameters": {
@@ -220,9 +511,15 @@
       "name": "Ask Methodology (New Project)",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [2000, 100],
+      "position": [
+        2000,
+        100
+      ],
       "credentials": {
-        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
       }
     },
     {
@@ -237,9 +534,15 @@
       "name": "Fetch Active Pentesters",
       "type": "n8n-nodes-base.notion",
       "typeVersion": 2.2,
-      "position": [1500, 300],
+      "position": [
+        1500,
+        300
+      ],
       "credentials": {
-        "notionApi": { "id": "{{ NOTION_CRED }}", "name": "Notion API" }
+        "notionApi": {
+          "id": "{{ NOTION_CRED }}",
+          "name": "Notion API"
+        }
       }
     },
     {
@@ -251,7 +554,10 @@
       "name": "Build Notion Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1750, 300]
+      "position": [
+        1750,
+        300
+      ]
     },
     {
       "parameters": {
@@ -267,9 +573,15 @@
       "name": "Create Notion Project Record",
       "type": "n8n-nodes-base.notion",
       "typeVersion": 2.2,
-      "position": [2000, 300],
+      "position": [
+        2000,
+        300
+      ],
       "credentials": {
-        "notionApi": { "id": "{{ NOTION_CRED }}", "name": "Notion API" }
+        "notionApi": {
+          "id": "{{ NOTION_CRED }}",
+          "name": "Notion API"
+        }
       },
       "retryOnFail": true,
       "maxTries": 3,
@@ -277,15 +589,31 @@
     },
     {
       "parameters": {
-        "operation": "delete",
-        "key": "=vapt:session:{{ $('Build Notion Payload').item.json.chatId }}"
+        "workflowId": "={{ $vars.WF_ID_SESSION_MANAGER }}",
+        "fields": {
+          "values": [
+            {
+              "name": "action",
+              "stringValue": "del"
+            },
+            {
+              "name": "session_key",
+              "stringValue": "={{ $('Build Notion Payload').item.json.chatId }}"
+            }
+          ]
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "f6000001-0000-0000-0000-000000000017",
       "name": "Clear Session After Create",
-      "type": "n8n-nodes-base.redis",
-      "typeVersion": 1,
-      "position": [2250, 300],
-      "credentials": { "redis": { "id": "{{ REDIS_CRED }}", "name": "Redis VAPT" } },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2250,
+        300
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -297,22 +625,33 @@
       "name": "Build Confirmation Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2500, 300]
+      "position": [
+        2500,
+        300
+      ]
     },
     {
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.chatId }}",
         "text": "={{ $json.text }}",
-        "additionalFields": { "parse_mode": "HTML" }
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
       },
       "id": "f6000001-0000-0000-0000-000000000019",
       "name": "Send Confirmation",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [2750, 300],
+      "position": [
+        2750,
+        300
+      ],
       "credentials": {
-        "telegramApi": { "id": "{{ TELEGRAM_BOT_A_CRED }}", "name": "Telegram Bot A - PM Assistant" }
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
       }
     },
     {
@@ -325,76 +664,275 @@
       "name": "Sticky Note - Overview",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [0, -350]
+      "position": [
+        0,
+        -350
+      ]
     }
   ],
   "connections": {
     "Execute Workflow Trigger": {
-      "main": [[{ "node": "Is Init or Session?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Is Init or Session?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Is Init or Session?": {
       "main": [
-        [{ "node": "Init New Project Session", "type": "main", "index": 0 }],
-        [{ "node": "Parse Session", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Init New Project Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Init New Project Session": {
-      "main": [[{ "node": "Ask Project ID", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Ask Project ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse Session": {
-      "main": [[{ "node": "Route by Step", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Route by Step",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Route by Step": {
       "main": [
-        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
-        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
-        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
-        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
-        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
-        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
-        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
-        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
-        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
-        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
-        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }],
-        [{ "node": "Process Step & Advance", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Process Step & Advance",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Step & Advance",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Step & Advance",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Step & Advance",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Step & Advance",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Step & Advance",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Step & Advance",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Step & Advance",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Step & Advance",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Step & Advance",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Step & Advance",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Step & Advance",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Process Step & Advance": {
-      "main": [[{ "node": "Is Complete?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Is Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Is Complete?": {
       "main": [
-        [{ "node": "Fetch Active Pentesters", "type": "main", "index": 0 }],
-        [{ "node": "Is Methodology Step?", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Fetch Active Pentesters",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Methodology Step?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Is Methodology Step?": {
       "main": [
-        [{ "node": "Save Session for Methodology", "type": "main", "index": 0 }],
-        [{ "node": "Save Session State", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Save Session for Methodology",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Session State",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Save Session for Methodology": {
-      "main": [[{ "node": "Ask Methodology (New Project)", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Ask Methodology (New Project)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Save Session State": {
-      "main": [[{ "node": "Ask Next Question", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Ask Next Question",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Fetch Active Pentesters": {
-      "main": [[{ "node": "Build Notion Payload", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Build Notion Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Build Notion Payload": {
-      "main": [[{ "node": "Create Notion Project Record", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Create Notion Project Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Create Notion Project Record": {
-      "main": [[{ "node": "Clear Session After Create", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Clear Session After Create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Clear Session After Create": {
-      "main": [[{ "node": "Build Confirmation Message", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Build Confirmation Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Build Confirmation Message": {
-      "main": [[{ "node": "Send Confirmation", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Send Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -404,8 +942,21 @@
     "errorWorkflow": "{{ VAPT_ERROR_HANDLER_ID }}"
   },
   "staticData": null,
-  "tags": [{ "name": "vapt" }, { "name": "bot-a" }, { "name": "new-project" }],
+  "tags": [
+    {
+      "name": "vapt"
+    },
+    {
+      "name": "bot-a"
+    },
+    {
+      "name": "new-project"
+    }
+  ],
   "pinData": {},
   "versionId": "f6000001-0000-0000-0000-000000000099",
-  "meta": { "templateCredsSetupCompleted": true, "instanceId": "{{ N8N_INSTANCE_ID }}" }
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "{{ N8N_INSTANCE_ID }}"
+  }
 }

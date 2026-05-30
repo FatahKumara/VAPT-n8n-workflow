@@ -67,26 +67,35 @@
     },
     {
       "parameters": {
-        "operation": "set",
-        "key": "=vapt:session:{{ $json.chatId }}",
-        "value": "={{ JSON.stringify({ command: '/generate_proposal', step: 'waiting_client_name', data: {} }) }}",
-        "expire": true,
-        "seconds": 3600
+        "workflowId": "={{ $vars.WF_ID_SESSION_MANAGER }}",
+        "fields": {
+          "values": [
+            {
+              "name": "action",
+              "stringValue": "set"
+            },
+            {
+              "name": "session_key",
+              "stringValue": "={{ $json.chatId }}"
+            },
+            {
+              "name": "session_data",
+              "stringValue": "={{ JSON.stringify({ command: '/generate_proposal', step: 'waiting_client_name', data: {} }) }}"
+            }
+          ]
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "e5000001-0000-0000-0000-000000000003",
       "name": "Init Proposal Session",
-      "type": "n8n-nodes-base.redis",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
         500,
         -150
-      ],
-      "credentials": {
-        "redis": {
-          "id": "{{ REDIS_CRED }}",
-          "name": "Redis VAPT"
-        }
-      }
+      ]
     },
     {
       "parameters": {
@@ -211,26 +220,35 @@
     },
     {
       "parameters": {
-        "operation": "set",
-        "key": "=vapt:session:{{ $json.chatId }}",
-        "value": "={{ JSON.stringify({ command: '/generate_proposal', step: 'waiting_object_list', data: { ...($json.data), client_name: $json.text } }) }}",
-        "expire": true,
-        "seconds": 3600
+        "workflowId": "={{ $vars.WF_ID_SESSION_MANAGER }}",
+        "fields": {
+          "values": [
+            {
+              "name": "action",
+              "stringValue": "set"
+            },
+            {
+              "name": "session_key",
+              "stringValue": "={{ $json.chatId }}"
+            },
+            {
+              "name": "session_data",
+              "stringValue": "={{ JSON.stringify({ command: '/generate_proposal', step: 'waiting_object_list', data: { ...($json.data), client_name: $json.text } }) }}"
+            }
+          ]
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "e5000001-0000-0000-0000-000000000007",
       "name": "Save Client → Ask Objects",
-      "type": "n8n-nodes-base.redis",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
         1000,
         0
-      ],
-      "credentials": {
-        "redis": {
-          "id": "{{ REDIS_CRED }}",
-          "name": "Redis VAPT"
-        }
-      }
+      ]
     },
     {
       "parameters": {
@@ -259,26 +277,35 @@
     },
     {
       "parameters": {
-        "operation": "set",
-        "key": "=vapt:session:{{ $json.chatId }}",
-        "value": "={{ JSON.stringify({ command: '/generate_proposal', step: 'waiting_methodology', data: { ...($json.data), object_list: $json.text } }) }}",
-        "expire": true,
-        "seconds": 3600
+        "workflowId": "={{ $vars.WF_ID_SESSION_MANAGER }}",
+        "fields": {
+          "values": [
+            {
+              "name": "action",
+              "stringValue": "set"
+            },
+            {
+              "name": "session_key",
+              "stringValue": "={{ $json.chatId }}"
+            },
+            {
+              "name": "session_data",
+              "stringValue": "={{ JSON.stringify({ command: '/generate_proposal', step: 'waiting_methodology', data: { ...($json.data), object_list: $json.text } }) }}"
+            }
+          ]
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "e5000001-0000-0000-0000-000000000009",
       "name": "Save Objects → Ask Methodology",
-      "type": "n8n-nodes-base.redis",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
         1000,
         150
-      ],
-      "credentials": {
-        "redis": {
-          "id": "{{ REDIS_CRED }}",
-          "name": "Redis VAPT"
-        }
-      }
+      ]
     },
     {
       "parameters": {
@@ -307,26 +334,35 @@
     },
     {
       "parameters": {
-        "operation": "set",
-        "key": "=vapt:session:{{ $json.chatId }}",
-        "value": "={{ JSON.stringify({ command: '/generate_proposal', step: 'waiting_scope', data: { ...($json.data), methodology: $json.cbData.replace('proposal:method:', '') } }) }}",
-        "expire": true,
-        "seconds": 3600
+        "workflowId": "={{ $vars.WF_ID_SESSION_MANAGER }}",
+        "fields": {
+          "values": [
+            {
+              "name": "action",
+              "stringValue": "set"
+            },
+            {
+              "name": "session_key",
+              "stringValue": "={{ $json.chatId }}"
+            },
+            {
+              "name": "session_data",
+              "stringValue": "={{ JSON.stringify({ command: '/generate_proposal', step: 'waiting_scope', data: { ...($json.data), methodology: $json.cbData.replace('proposal:method:', '') } }) }}"
+            }
+          ]
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "e5000001-0000-0000-0000-000000000011",
       "name": "Save Methodology → Ask Scope",
-      "type": "n8n-nodes-base.redis",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
         1000,
         300
-      ],
-      "credentials": {
-        "redis": {
-          "id": "{{ REDIS_CRED }}",
-          "name": "Redis VAPT"
-        }
-      }
+      ]
     },
     {
       "parameters": {
@@ -447,23 +483,31 @@
     },
     {
       "parameters": {
-        "operation": "delete",
-        "key": "={{ $json.clearKey }}"
+        "workflowId": "={{ $vars.WF_ID_SESSION_MANAGER }}",
+        "fields": {
+          "values": [
+            {
+              "name": "action",
+              "stringValue": "del"
+            },
+            {
+              "name": "session_key",
+              "stringValue": "={{ $json.clearKey }}"
+            }
+          ]
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
       },
       "id": "e5000001-0000-0000-0000-000000000018",
       "name": "Clear Session",
-      "type": "n8n-nodes-base.redis",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
         2000,
         300
       ],
-      "credentials": {
-        "redis": {
-          "id": "{{ REDIS_CRED }}",
-          "name": "Redis VAPT"
-        }
-      },
       "onError": "continueRegularOutput"
     },
     {
