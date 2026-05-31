@@ -1,0 +1,23 @@
+# ─── Credentials & Secrets ────────────────────────────────────────────────────
+# File credentials lokal (berisi nilai asli token/API key — JANGAN dipush!)
+CREDENTIALS_CHECKLIST.local.md
+workflows/CREDENTIALS_CHECKLIST.local.md
+**/CREDENTIALS_CHECKLIST.local.md
+
+# Pola umum untuk file lokal/sensitif
+*.local.md
+*.local.json
+*.local.env
+.env
+.env.*
+secrets.*
+
+# ─── Temp & Build ─────────────────────────────────────────────────────────────
+*.tmp
+*.log
+node_modules/
+
+# ─── OS & Editor ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/settings.json
