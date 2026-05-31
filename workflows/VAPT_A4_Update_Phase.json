@@ -129,7 +129,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const incoming = $('Execute Workflow Trigger').first().json;\nconst cbData = incoming.callbackData || '';\nconst session = incoming.session || {};\nconst chatId = incoming.chatId;\n\nif (cbData.startsWith('phase:proj:')) {\n  const projectId = cbData.replace('phase:proj:', '');\n  return [{ json: { chatId, step: 'select_phase', projectId } }];\n}\nif (cbData.startsWith('phase:set:')) {\n  const parts = cbData.replace('phase:set:', '').split(':');\n  const projectId = parts[0];\n  const phase = parts.slice(1).join(':');\n  return [{ json: { chatId, step: 'set_phase', projectId, phase } }];\n}\nif (session.step === 'waiting_notes') {\n  return [{ json: { chatId, step: 'save_notes', projectId: session.data?.projectId, phase: session.data?.phase, notes: incoming.text } }];\n}\nreturn [{ json: { chatId, step: 'unknown' } }];"
+        "jsCode": "const incoming = $('Execute Workflow Trigger').first().json;\nconst cbData = incoming.callbackData || '';\nconst session = incoming.session || {};\nconst chatId = incoming.chatId;\n\nif (cbData.startsWith('phase:proj:')) {\n  const projectId = cbData.replace('phase:proj:', '');\n  return [{ json: { chatId, step: 'select_phase', projectId } }];\n}\nif (cbData.startsWith('phase:set:')) {\n  const parts = cbData.replace('phase:set:', '').split(':');\n  const projectId = parts[0];\n  const phase = parts.slice(1).join(':');\n  return [{ json: { chatId, step: 'set_phase', projectId, phase } }];\n}\nif (cbData.startsWith('status:set:')) {\n  const status = cbData.replace('status:set:', '');\n  const sessionData = session.data || {};\n  return [{ json: { chatId, step: 'set_status', projectId: sessionData.projectId, phase: sessionData.phase, status } }];\n}\nif (session.step === 'waiting_notes') {\n  const d = session.data || {};\n  return [{ json: { chatId, step: 'save_notes', projectId: d.projectId, phase: d.phase, status: d.status, notes: incoming.text } }];\n}\nreturn [{ json: { chatId, step: 'unknown' } }];"
       },
       "id": "g7000001-0000-0000-0000-000000000006",
       "name": "Parse Callback Route",
@@ -167,6 +167,22 @@
                   {
                     "leftValue": "={{ $json.step }}",
                     "rightValue": "set_phase",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "ask_status"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.step }}",
+                    "rightValue": "set_status",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
@@ -246,7 +262,7 @@
             },
             {
               "name": "session_data",
-              "stringValue": "={{ JSON.stringify({ command: '/update_phase', step: 'waiting_notes', data: { projectId: $json.projectId, phase: $json.phase } }) }}"
+              "stringValue": "={{ JSON.stringify({ command: '/update_phase', step: 'waiting_status', data: { projectId: $json.projectId, phase: $json.phase } }) }}"
             }
           ]
         },
@@ -267,7 +283,7 @@
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.chatId }}",
-        "text": "={{ '✅ Fase dipilih: <b>' + $json.phase + '</b>\\n\\nMasukkan catatan PM untuk update ini:\\n<i>(Opsional, ketik \"-\" untuk skip)</i>' }}",
+        "text": "={{ '✅ Status dipilih: <b>' + $json.status + '</b>\\n\\nMasukkan catatan PM untuk update ini:\\n<i>(Opsional, ketik \"-\" untuk skip)</i>' }}",
         "additionalFields": {
           "parse_mode": "HTML",
           "reply_markup": "{\"force_reply\": true}"
@@ -278,7 +294,7 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1250,
+        1500,
         150
       ],
       "credentials": {
@@ -291,7 +307,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const item = $input.first().json;\nconst today = new Date();\n\nconst phaseOrder = ['Pre-Kickoff','Kickoff','Initial Test','Initial Report','Presentation','Patching','Retest','Retest Report'];\nconst phaseDateMap = {\n  'Pre-Kickoff': 'date_pre_kickoff',\n  'Kickoff': 'date_kickoff',\n  'Initial Test': 'date_initial_test',\n  'Initial Report': 'date_initial_report',\n  'Presentation': 'date_presentation',\n  'Patching': 'date_patching',\n  'Retest': 'date_retest',\n  'Retest Report': 'date_retest_report'\n};\n\n// Status would be recalculated by Notion formula, but we set the phase\nconst notes = item.notes === '-' ? '' : (item.notes || '');\n\nreturn [{ json: {\n  chatId: item.chatId,\n  projectId: item.projectId,\n  phase: item.phase,\n  notes,\n  updateProperties: {\n    current_phase: { select: { name: item.phase } },\n    pm_notes: notes ? { rich_text: [{ text: { content: notes } }] } : undefined,\n    last_updated: { date: { start: today.toISOString().split('T')[0] } }\n  }\n} }];"
+        "jsCode": "const item = $input.first().json;\nconst today = new Date();\nconst notes = item.notes === '-' ? '' : (item.notes || '');\nconst projectStatus = item.status || '';\n\nreturn [{ json: {\n  chatId: item.chatId,\n  projectId: item.projectId,\n  phase: item.phase,\n  status: projectStatus,\n  notes,\n  updateProperties: {\n    current_phase: { select: { name: item.phase } },\n    project_status: projectStatus ? { select: { name: projectStatus } } : undefined,\n    pm_notes: notes ? { rich_text: [{ text: { content: notes } }] } : undefined,\n    last_updated: { date: { start: today.toISOString().split('T')[0] } }\n  }\n} }];"
       },
       "id": "g7000001-0000-0000-0000-000000000011",
       "name": "Build Update Payload",
@@ -362,7 +378,7 @@
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $('Build Update Payload').item.json.chatId }}",
-        "text": "={{ '✅ <b>Fase Proyek Berhasil Diupdate!</b>\\n\\n📍 <b>Fase Baru:</b> ' + $('Build Update Payload').item.json.phase + '\\n📝 <b>Catatan PM:</b> ' + ($('Build Update Payload').item.json.notes || '(tidak ada)') + '\\n🕐 <b>Diupdate:</b> ' + new Date().toLocaleString(\\'id-ID\\', {timeZone:\\'Asia/Jakarta\\'}) + ' WIB\\n\\nData telah tersimpan di Notion.' }}",
+        "text": "={{ '✅ <b>Proyek Berhasil Diupdate!</b>\\n\\n📍 <b>Fase Baru:</b> ' + $('Build Update Payload').item.json.phase + '\\n🔖 <b>Status:</b> ' + ($('Build Update Payload').item.json.status || '-') + '\\n📝 <b>Catatan PM:</b> ' + ($('Build Update Payload').item.json.notes || '(tidak ada)') + '\\n🕐 <b>Diupdate:</b> ' + new Date().toLocaleString(\\'id-ID\\', {timeZone:\\'Asia/Jakarta\\'}) + ' WIB\\n\\nData telah tersimpan di Notion.' }}",
         "additionalFields": {
           "parse_mode": "HTML"
         }
@@ -384,8 +400,8 @@
     },
     {
       "parameters": {
-        "content": "## VAPT A4 — Update Phase\n\n**Trigger:** Sub-workflow dipanggil oleh Bot A Dispatcher (`/update_phase`)\n\n**Flow:**\n1. Fetch semua proyek dari Notion DB-1\n2. Tampilkan inline keyboard daftar proyek (ID | Fase saat ini)\n3. Pilih proyek → tampilkan 8 opsi fase (Pre-Kickoff s/d Retest Report)\n4. Pilih fase baru → input catatan PM (opsional, ketik \"-\" untuk skip)\n5. Update `current_phase`, `pm_notes`, `last_updated` di Notion DB-1\n\n**Database:** Notion DB-1 (Project List) — update\n**Session Key:** `vapt:session:{chatId}` (TTL 1 jam)",
-        "height": 240,
+        "content": "## VAPT A4 — Update Phase & Status\n\n**Trigger:** Sub-workflow dipanggil oleh Bot A Dispatcher (`/update_phase`)\n\n**Flow:**\n1. Fetch semua proyek dari Notion DB-1\n2. Tampilkan daftar proyek (inline keyboard)\n3. Pilih proyek → tampilkan 8 opsi fase\n4. Pilih fase → tampilkan 4 opsi **project_status**\n   (Not Started / On Progress / Blocking/Delay / Done/Finish)\n5. Pilih status → input catatan PM (opsional)\n6. Update `current_phase`, `project_status`, `pm_notes`, `last_updated` di Notion DB-1\n\n**Session steps:** select_phase → set_phase → waiting_status → set_status → waiting_notes → save_notes\n**Database:** Notion DB-1 (Project List)",
+        "height": 280,
         "width": 490
       },
       "id": "g7000001-0000-0000-0000-000000000015",
@@ -395,6 +411,63 @@
       "position": [
         0,
         -300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ '✅ Fase dipilih: <b>' + $json.phase + '</b>\\n\\nPilih status proyek saat ini:' }}",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "reply_markup": "{\"inline_keyboard\":[[{\"text\":\"🟢 On Progress\",\"callback_data\":\"status:set:On Progress\"}],[{\"text\":\"🔴 Blocking / Delay\",\"callback_data\":\"status:set:Blocking/Delay\"}],[{\"text\":\"⚪ Not Started\",\"callback_data\":\"status:set:Not Started\"}],[{\"text\":\"✅ Done / Finish\",\"callback_data\":\"status:set:Done/Finish\"}]]}"
+        }
+      },
+      "id": "g7000001-0000-0000-0000-000000000016",
+      "name": "Show Status Selection",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1250,
+        150
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "{{ TELEGRAM_BOT_A_CRED }}",
+          "name": "Telegram Bot A - PM Assistant"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $vars.WF_ID_SESSION_MANAGER }}",
+        "fields": {
+          "values": [
+            {
+              "name": "action",
+              "stringValue": "set"
+            },
+            {
+              "name": "session_key",
+              "stringValue": "={{ $json.chatId }}"
+            },
+            {
+              "name": "session_data",
+              "stringValue": "={{ JSON.stringify({ command: '/update_phase', step: 'waiting_notes', data: { projectId: $json.projectId, phase: $json.phase, status: $json.status } }) }}"
+            }
+          ]
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "id": "g7000001-0000-0000-0000-000000000017",
+      "name": "Save Status to Session",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1250,
+        300
       ]
     }
   ],
@@ -479,6 +552,13 @@
         ],
         [
           {
+            "node": "Save Status to Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Build Update Payload",
             "type": "main",
             "index": 0
@@ -490,7 +570,7 @@
       "main": [
         [
           {
-            "node": "Ask PM Notes",
+            "node": "Show Status Selection",
             "type": "main",
             "index": 0
           }
@@ -524,6 +604,17 @@
         [
           {
             "node": "Send Update Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Status to Session": {
+      "main": [
+        [
+          {
+            "node": "Ask PM Notes",
             "type": "main",
             "index": 0
           }

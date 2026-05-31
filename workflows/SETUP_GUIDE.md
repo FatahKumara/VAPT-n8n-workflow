@@ -148,6 +148,7 @@ WF_ID_C4_VULN_UPDATE        = [ID dari VAPT_C4_Vulnerability_Update]
 | object_list | Multi-select | Web App, Mobile App, API, Network, Cloud, dll |
 | methodology | Select | Black Box, Grey Box, White Box |
 | current_phase | Select | Pre-Kickoff, Kickoff, Initial Test, Initial Report, Presentation, Patching, Retest, Retest Report |
+| **project_status** | **Select** | **Not Started, On Progress, Blocking/Delay, Done/Finish** |
 | date_pre_kickoff | Date | - |
 | date_kickoff | Date | - |
 | date_initial_test | Date | - |
